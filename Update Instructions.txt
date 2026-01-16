@@ -1,0 +1,145 @@
+# Manual Firebase Configuration Instructions
+
+Follow these steps in your Firebase project to ensure the application's new features work correctly.
+
+## Step 1: Update Firestore Security Rules
+
+1.  Navigate to your **Firebase Console**.
+2.  Go to the **Build** section on the left and select **Firestore Database**.
+3.  Click on the **Rules** tab at the top.
+4.  Replace the entire content of the rules editor with the following rules:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+  
+    // Helper function to get user role safely
+    function getUserRole(userId) {
+       let userDoc = get(/databases/$(database)/documents/users/$(userId));
+       return userDoc != null && userDoc.data != null && "role" in userDoc.data ? userDoc.data.role : null;
+    }
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserRole(request.auth.uid) == 'Admin';
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow create: if isSignedIn();
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isSignedIn(); // Allow signed-in users to list users for dashboard stats.
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Resources collection
+    match /resources/{resourceId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Directories collection
+    match /directories/{directoryId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    // Trainings Collection (for dashboard)
+    match /trainings/{trainingId} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
+    }
+    
+    // Recent Activity Collection (for dashboard)
+    match /recentActivity/{activityId} {
+      allow read: if isSignedIn();
+      allow write: if false; 
+    }
+    
+    // Channels & Messages for forum
+    match /channels/{channelId} {
+      allow read, create, update: if isSignedIn();
+      
+      match /messages/{messageId} {
+        allow read, create: if isSignedIn();
+      }
+    }
+
+    // Certificates subcollection
+    match /users/{userId}/certificates/{certId} {
+        allow get: if isOwner(userId) || isAdmin();
+        allow list: if isOwner(userId) || isAdmin();
+        allow write, delete, create: if isAdmin();
+    }
+
+    // Collection Group Query for certificates
+    match /{path=**}/certificates/{certId} {
+      allow read: if isAdmin(); 
+    }
+
+    // Collection Group Query for messages (for dashboard)
+    match /{path=**}/messages/{messageId} {
+      allow list: if isSignedIn();
+    }
+  }
+}
+```
+
+5.  Click the **Publish** button to save and deploy your new rules.
+
+## Step 2: Update Cloud Storage Rules
+
+1.  Navigate to your **Firebase Console**.
+2.  Go to the **Build** section on the left and select **Storage**.
+3.  Click on the **Rules** tab at the top.
+4.  Replace the entire content of the rules editor with the following rules:
+
+```
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow authenticated users to upload files to the 'resources' directory.
+    // This allows anyone logged in to upload files. You can restrict this further
+    // by checking user roles from Firestore if needed.
+    match /resources/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+```
+
+5. Click the **Publish** button to save and deploy your new rules.
+
+## Step 3: Create Firestore Index for Messaging
+
+The messaging page and dashboard need a specific index to sort channels and query messages correctly.
+
+1. In the **Firestore Database** section of the Firebase Console, click the **Indexes** tab.
+2. Click on **Composite** and then **Create index**.
+3. Set up the index for **Channels** with the following details:
+    - **Collection ID:** `channels`
+    - **Fields to index:**
+        1. `pinned` - Order: **Descending**
+        2. `name` - Order: **Ascending**
+    - **Query scopes:** Collection
+4. Click **Create** to build the index. It may take a few minutes.
+
+5. After the first index is created, click **Create index** again for **Messages**:
+    - **Collection ID:** `messages`
+    - **Fields to index:**
+        1. `timestamp` - Order: **Descending**
+    - **Query scopes:** **Collection Group**
+6. Click **Create** to build the index.
+
+This completes the necessary manual configuration. The application is now fully set up.
+
+    

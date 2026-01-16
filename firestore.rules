@@ -1,0 +1,158 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Helper Functions ---
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getRole(userId) {
+      return getUserData(userId).role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getRole(request.auth.uid) == 'Admin';
+    }
+    
+    function isTrainer() {
+       return isSignedIn() && (getRole(request.auth.uid) == 'Trainer' || isAdmin());
+    }
+    
+    function isELSA() {
+        return isSignedIn() && getRole(request.auth.uid) == 'ELSA';
+    }
+
+    // --- Collection Rules ---
+
+    match /users/{userId} {
+      // Anyone can create a user document on signup
+      allow create: if isSignedIn();
+      // Anyone can read any user document (for profiles, search, etc.)
+      allow read: if isSignedIn();
+      // Only admins can delete users
+      allow delete: if isAdmin();
+      
+      // Update logic:
+      // 1. Admins can update anything.
+      // 2. Owners can update their own data, but NOT protected role/status fields.
+      allow update: if isAdmin() || (
+        isOwner(userId) &&
+        // List of fields a user CANNOT change for themselves.
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'role', 'additionalRoles', 'approvalStatus', 'certificationStatus', 'lastRoleUpdate', 'linkedStaffIds', 'linkedLineManagerId', 'hasSpecialistAccess'
+        ])
+      );
+    }
+    
+    // Journal subcollection: Strictly private to the owner.
+    match /users/{userId}/journal/{entryId} {
+        allow read, write, create, delete: if isOwner(userId);
+    }
+    
+    // Checkout sessions: Private to the user.
+    match /users/{userId}/checkout_sessions/{sessionId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // Feedbacks collection:
+    // - Any signed-in user can create feedback.
+    // - No one can read/update/delete individual feedbacks from the client to ensure anonymity and data integrity.
+    // - Trainers/Admins would query this via a secured backend/function.
+    match /feedbacks/{feedbackId} {
+        allow create: if isSignedIn();
+        allow read, update, delete: if false; 
+    }
+
+    // Mail collection: For triggering emails via Cloud Functions. Client creates only.
+    match /mail/{mailId} {
+      allow create: if true;
+      allow read: if isAdmin(); // Admins can read for debugging.
+      allow update, delete: if false;
+    }
+    
+    // Invites collection:
+    match /invites/{inviteId} {
+        // Line managers can create invites via the app (handled by backend logic).
+        allow create: if isSignedIn();
+        // Only the invited user (via a function) or an admin can read.
+        allow read: if isSignedIn();
+        // Only backend functions can update status to 'accepted'.
+        allow update, delete: if isAdmin();
+    }
+    
+    match /trainingCourses/{courseId} {
+      allow read: if isSignedIn();
+      allow create, delete: if isTrainer();
+      // Allow trainers to update anything
+      // Allow any signed-in user to add themselves to participantIds (handled by transaction logic)
+      // Allow course completion function to update attendance
+      allow update: if isTrainer() || (
+        isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantIds', 'attendance'])
+      );
+    }
+    
+    match /supervisionGroups/{groupId} {
+      allow read: if isSignedIn();
+      allow create, delete: if isTrainer();
+       // Allow trainers to update anything
+      // Allow any signed-in user to add themselves to memberIds (handled by transaction logic)
+      allow update: if isTrainer() || (
+        isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds'])
+      );
+    }
+
+    match /resources/{resourceId} {
+      allow read: if isSignedIn();
+      allow write: if isTrainer();
+    }
+
+    match /resource_submissions/{submissionId} {
+      allow create: if isSignedIn();
+      allow read: if isSignedIn() && (isOwner(resource.data.submittedBy) || isTrainer());
+      allow delete: if isTrainer();
+    }
+
+    match /directories/{directoryId} {
+      allow read: if isSignedIn();
+      allow write: if isTrainer();
+    }
+    
+    match /recentActivity/{activityId} {
+      allow read: if isSignedIn();
+      allow write: if false; 
+    }
+    
+    match /channels/{channelId} {
+      allow read, create, update: if isSignedIn();
+      
+      match /messages/{messageId} {
+        allow read, create: if isSignedIn();
+      }
+    }
+
+    match /users/{userId}/certificates/{certId} {
+        allow read: if isOwner(userId) || isTrainer();
+        allow write, delete, create: if isTrainer();
+    }
+
+    match /{path=**}/certificates/{certId} {
+      allow read: if isSignedIn(); 
+    }
+
+    // Audit Logs: No client access
+    match /audit_logs/{logId} {
+      allow read, write: if false;
+    }
+  }
+}

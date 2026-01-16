@@ -1,0 +1,99 @@
+# ELSA Training Hub: Firebase Setup Instructions
+
+Follow these steps carefully to configure your Firebase project. This is a crucial step to ensure the application works correctly after deployment.
+
+## Step 1: Create a Firebase Project
+
+1.  Go to the [Firebase Console](https://console.firebase.google.com/).
+2.  Click on "**Add project**".
+3.  Enter a name for your project (e.g., "ELSA Training Hub").
+4.  You can choose to enable or disable Google Analytics. It's not required for this application to function.
+5.  Click "**Create project**". Wait for the project to be created.
+
+## Step 2: Create a Web App in Your Firebase Project
+
+1.  Inside your new project, you'll see a message "Get started by adding Firebase to your app".
+2.  Click on the **Web icon** (it looks like `</>`).
+3.  Enter an "App nickname" (e.g., "ELSA Hub Web App").
+4.  **Do NOT** check the box for "Also set up Firebase Hosting for this app". We will do this later.
+5.  Click "**Register app**".
+
+## Step 3: Get Your Firebase Credentials
+
+1.  After registering the app, Firebase will show you your `firebaseConfig` object. It will look like this:
+
+    ```javascript
+    const firebaseConfig = {
+      apiKey: "AIzaSy...",
+      authDomain: "your-project-id.firebaseapp.com",
+      projectId: "your-project-id",
+      storageBucket: "your-project-id.appspot.com",
+      messagingSenderId: "...",
+      appId: "1:..."
+    };
+    ```
+
+2.  **Copy this entire object.** We need to put these values into your codebase.
+
+## Step 4: Create the `.env.local` File
+
+1.  In the root directory of your project, create a new file named `.env.local`.
+2.  Paste the Firebase configuration you copied into this file, but format it like the example below. **You must add `NEXT_PUBLIC_` to the beginning of each key name.**
+
+    ```
+    NEXT_PUBLIC_FIREBASE_API_KEY="AIzaSy..."
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project-id.firebaseapp.com"
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-project-id"
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="your-project-id.appspot.com"
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="..."
+    NEXT_PUBLIC_FIREBASE_APP_ID="1:..."
+    ```
+
+3.  Replace the placeholder values with your actual Firebase project credentials.
+4.  Save the `.env.local` file.
+
+## Step 5: Enable Authentication
+
+1.  In the Firebase Console, go to the "**Build**" section in the left-hand menu and click on "**Authentication**".
+2.  Click the "**Get started**" button.
+3.  In the "Sign-in method" tab, click on "**Email/Password**" from the list of providers.
+4.  **Enable** the "Email/Password" provider.
+5.  Click "**Save**".
+
+## Step 6: Set Up Firestore Database
+
+1.  In the Firebase Console, go to the "**Build**" section and click on "**Firestore Database**".
+2.  Click the "**Create database**" button.
+3.  Select "**Start in production mode**".
+4.  Click "**Next**".
+5.  Choose a location for your Firestore data (choose the one closest to your users).
+6.  Click "**Enable**".
+
+## Step 7: Apply Firestore Security Rules
+
+1.  In the Firestore Database section, click on the "**Rules**" tab at the top.
+2.  Delete all the existing content in the rules editor.
+3.  Open the `firestore.rules` file from your project's root directory.
+4.  Copy the entire contents of the `firestore.rules` file.
+5.  Paste the contents into the Firestore rules editor in the Firebase Console.
+6.  Click "**Publish**".
+
+## Step 8: Deploy to Firebase Hosting
+
+If you have the Firebase CLI installed, you can now deploy your project.
+
+1.  Open your terminal in the root directory of the project.
+2.  If you haven't initialized Firebase in this project yet, run:
+    `firebase init hosting`
+    - Select "**Use an existing project**" and choose the Firebase project you created.
+    - When asked for your public directory, type: `out`
+    - When asked to configure as a single-page app, type: `y` (Yes).
+    - When asked to set up automatic builds and deploys with GitHub, type `N` (No) for now.
+
+3.  Build your Next.js application for production:
+    `npm run build`
+
+4.  Deploy your application to Firebase Hosting:
+    `firebase deploy --only hosting`
+
+Once the deployment is complete, you can visit the hosting URL provided in the terminal to see your live application!

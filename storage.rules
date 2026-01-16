@@ -1,0 +1,52 @@
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function getUserRole(userId) {
+      return firestore.get(/databases/(default)/documents/users/$(userId)).data.role;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && getUserRole(request.auth.uid) == 'Admin';
+    }
+    
+    function isTrainer() {
+       return isSignedIn() && (getUserRole(request.auth.uid) == 'Trainer' || isAdmin());
+    }
+
+    // Profile Pictures: Users can read any, but only write their own.
+    match /profile_pictures/{userId}/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId);
+    }
+    
+    // Certificates: Only the user can upload. Admins and the user can read.
+    match /certificates/{userId}/{fileName} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId); // Allow initial upload
+    }
+
+    // Live Resources: Trainers/Admins can write, anyone signed in can read.
+    match /resources/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isTrainer();
+    }
+
+    // Submissions for review: Only the user can create/write to their own submission folder. Admins can read.
+    match /submissions/{userId}/{fileName} {
+      allow read: if isAdmin();
+      allow write: if isOwner(userId);
+    }
+  }
+}
+
+    

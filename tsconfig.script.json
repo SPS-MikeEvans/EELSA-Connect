@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "outDir": ".",
+    "noEmit": false
+  },
+  "include": [
+    "./scripts/setup-resource-access.ts"
+  ]
+}
