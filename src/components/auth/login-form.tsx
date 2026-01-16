@@ -20,7 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Icon } from "../icons/icon";
+import { Logo } from "../icons/logo";
 import { auth } from "@/lib/firebase";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -73,7 +73,7 @@ export function LoginForm() {
   return (
     <Card className="w-full max-w-sm border-2 border-primary shadow-lg">
       <CardHeader className="items-center text-center">
-        <Icon className="size-16 mb-2" src="/EEConnect_Logo.png" alt="EEConnect Logo" />
+        <Logo className="w-[90%] mb-2" />
         <CardTitle className="text-2xl font-headline text-primary">Welcome Back</CardTitle>
         <CardDescription>Enter your credentials to access your account</CardDescription>
       </CardHeader>

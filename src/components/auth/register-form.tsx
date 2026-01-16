@@ -124,23 +124,38 @@ export function RegisterForm() {
     const inviteId = searchParams.get('inviteId');
     if (inviteId) {
       const fetchInvite = async () => {
-        const inviteRef = doc(db, 'invites', inviteId);
-        const inviteSnap = await getDoc(inviteRef);
-        if (inviteSnap.exists()) {
-          const data = inviteSnap.data();
-          setInviteDetails({
-            fromName: data.fromName,
-            schoolSetting: data.schoolSetting,
-            fromId: data.fromId
+        try {
+          const inviteRef = doc(db, 'invites', inviteId);
+          const inviteSnap = await getDoc(inviteRef);
+          if (inviteSnap.exists()) {
+            const data = inviteSnap.data();
+            setInviteDetails({
+              fromName: data.fromName,
+              schoolSetting: data.schoolSetting,
+              fromId: data.fromId
+            });
+            // Pre-fill form fields
+            form.setValue('organization', data.schoolSetting);
+            form.setValue('linkedLineManagerId', data.fromId);
+          } else {
+            toast({
+              title: "Invalid Invite",
+              description: "The invite link is invalid or has expired.",
+              variant: "destructive",
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching invite:", error);
+          toast({
+            title: "Error",
+            description: "Could not fetch invite details. Please check your connection and try again.",
+            variant: "destructive",
           });
-          // Pre-fill form fields
-          form.setValue('organization', data.schoolSetting);
-          form.setValue('linkedLineManagerId', data.fromId);
         }
       };
       fetchInvite();
     }
-  }, [searchParams, form]);
+  }, [searchParams, form, toast]);
 
   const selectedRole = form.watch("role");
 
