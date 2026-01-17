@@ -4,15 +4,18 @@ This document provides a detailed explanation of the ELSA Training Hub applicati
 
 ## 1. Technology Stack
 
-The application is built with a modern, component-based stack:
+The application is built with a modern, full-featured stack:
 
 - **Framework:** Next.js (with App Router)
 - **Language:** TypeScript
 - **UI Library:** React
 - **Styling:** Tailwind CSS
 - **UI Components:** ShadCN UI
+- **Database:** Google Firestore
+- **Authentication:** Firebase Authentication
+- **Payments:** Stripe
+- **Email:** Nodemailer (with Gmail)
 - **Generative AI:** Genkit
-- **Authentication (Mock):** A simulated authentication flow is in place for demonstration purposes.
 
 ---
 
@@ -22,20 +25,20 @@ The project follows a standard Next.js structure, with key logic organized insid
 
 ```
 /
-├── public/                 # Static assets
+├── public/                 # Static assets (images, logos)
 ├── src/
 │   ├── app/                # Next.js App Router: pages, layouts, and routes
-│   │   ├── (app)/          # Group for authenticated routes (e.g., dashboard)
-│   │   ├── (auth)/         # Group for authentication routes (e.g., login)
+│   │   ├── (app)/          # Group for authenticated routes (dashboard, courses, etc.)
+│   │   ├── (auth)/         # Group for authentication routes (login, register)
 │   │   ├── globals.css     # Global styles and CSS variables for theming
 │   │   └── layout.tsx      # Root application layout
 │   ├── components/         # Reusable React components
-│   │   ├── auth/           # Authentication-related forms (Login, Register)
+│   │   ├── auth/           # Authentication forms (Login, Register)
 │   │   ├── icons/          # Custom SVG icon components
 │   │   ├── layout/         # Components for overall page structure (Header, Sidebar)
 │   │   └── ui/             # ShadCN UI components (Button, Card, etc.)
 │   ├── hooks/              # Custom React hooks
-│   ├── lib/                # Utility functions
+│   ├── lib/                # Utility functions (Firebase, Stripe, etc.)
 │   └── ai/                 # Genkit AI flows and configuration
 ├── tailwind.config.ts      # Tailwind CSS configuration
 └── next.config.ts          # Next.js configuration
@@ -43,56 +46,42 @@ The project follows a standard Next.js structure, with key logic organized insid
 
 ### Key Directories Explained:
 
-- **`src/app`**: This is the core of the Next.js application.
-    - **Route Groups `(app)` and `(auth)`**: These folders group related routes without affecting the URL path. `(app)` contains all pages behind the mock authentication, sharing a common layout (`src/app/(app)/layout.tsx`). `(auth)` contains the login and registration pages, sharing a simpler, centered layout.
-    - **`page.tsx`**: The main component for a specific URL path.
-    - **`layout.tsx`**: A component that wraps page components, defining a shared UI for a route and its children.
-
-- **`src/components`**: Contains all reusable React components.
-    - **`ui/`**: This directory holds the base UI components provided by ShadCN (e.g., `Button`, `Card`, `Input`). They are highly customizable and form the building blocks of the interface.
-    - **`auth/`**: Contains the `LoginForm` and `RegisterForm`, which handle user input and mock submission.
-    - **`layout/`**: Holds components that define the application's main structure, such as the `Header`, `MainNav` (the sidebar navigation), and `UserNav` (the user profile dropdown).
-
-- **`src/hooks`**: Home for custom React hooks.
-    - **`use-toast.ts`**: A custom hook for displaying toast notifications.
-    - **`use-mobile.ts`**: A hook to detect if the user is on a mobile-sized screen, used for responsive layouts (like the collapsible sidebar).
-
-- **`src/lib`**: Contains helper and utility functions.
-    - **`utils.ts`**: Includes the `cn` function, which merges Tailwind CSS classes intelligently, making conditional styling cleaner.
-
-- **`src/ai`**: This directory is designated for all Generative AI functionality using Genkit.
-    - **`genkit.ts`**: Initializes and configures the global Genkit `ai` instance.
-    - **`dev.ts`**: The entry point for running Genkit flows in development.
-    - It would also contain a `flows` subdirectory for individual AI flow definitions.
+- **`src/app`**: The core of the Next.js application, using route groups `(app)` for authenticated users and `(auth)` for login/registration pages.
+- **`src/components`**: Contains all reusable React components, organized by feature (`auth`, `layout`) and the base `ui` components from ShadCN.
+- **`src/hooks`**: Home for custom React hooks like `use-toast` for notifications and `use-mobile` for responsive layouts.
+- **`src/lib`**: Contains critical utility functions and SDK initializations, including `firebase.ts` for connecting to Firebase/Firestore and `utils.ts` for helper functions like `cn`.
 
 ---
 
 ## 3. Styling and Theming
 
-- **Tailwind CSS**: The primary tool for styling. It's a utility-first CSS framework that allows for rapid UI development directly in the markup.
-- **`src/app/globals.css`**: This file sets up the base styles and, most importantly, defines the application's theme using CSS variables. Colors for `primary`, `secondary`, `accent`, `background`, etc., are defined here in HSL format. This allows for easy theme changes and consistency across all components.
-- **ShadCN UI**: The components in `src/components/ui` are built on top of Radix UI and styled with Tailwind CSS according to the theme defined in `globals.css`. They are not from a typical component library; instead, you own the code, making them fully customizable.
-- **Fonts**: The application uses 'Inter' for body text and 'Space Grotesk' for headlines, configured in `src/app/layout.tsx` and `tailwind.config.ts`.
+- **Tailwind CSS**: The primary tool for styling, allowing for rapid, utility-first UI development.
+- **`src/app/globals.css`**: Defines the application's theme (primary, secondary, accent colors) using CSS variables, allowing for easy and consistent theme changes.
+- **ShadCN UI**: The components in `src/components/ui` are fully customizable, built on Radix UI, and styled with our application's Tailwind theme.
+- **Fonts**: The application uses 'Inter' for body text and 'Space Grotesk' for headlines.
 
 ---
 
-## 4. How It Functions
+## 4. Core Features & Functionality
 
-### Application Flow & Routing
+### User Management & Authentication
+- **Authentication:** A complete authentication system is implemented using **Firebase Authentication**, handling user sign-up, login, and session management.
+- **User Roles:** The system is designed to support different user roles, such as **ELSA**, **Trainer**, and **Admin**, with permissions managed via Firestore.
 
-1.  **Entry Point**: The root page (`src/app/page.tsx`) redirects users to `/login`.
-2.  **Authentication**:
-    - The `/login` and `/register` routes are handled by the `(auth)` route group.
-    - The forms in `src/components/auth/` use `react-hook-form` for state management and `zod` for validation.
-    - Upon "successful" submission (currently a mock), the user is redirected to the `/dashboard`.
-3.  **Authenticated Experience**:
-    - All routes within the `(app)` group are for authenticated users.
-    - The layout in `src/app/(app)/layout.tsx` establishes the main UI shell, which includes the `Header` and the `Sidebar`.
-    - The sidebar (`src/components/layout/main-nav.tsx`) provides navigation between the main pages: Dashboard, Resources, Certificates, etc.
-    - The main content for each page is rendered where `{children}` is placed in the layout.
+### Training & Supervision Management
+- **Course Enrollment:** ELSAs can browse and enroll in training courses.
+- **Supervision Groups:** The platform provides dedicated management for supervision cohorts, including membership tracking and session scheduling.
+- **Attendance & Capacity:** Trainers and Admins can log attendance. Group sizes are automatically managed, with visual indicators for capacity.
 
-### State Management
+### Resource Centre
+- **Digital Library:** A file-sharing system where Admins and Trainers upload educational materials.
+- **Granular Permissions:** A sophisticated permission system ensures users only see resources relevant to their specific training or supervision group.
+- **Directory Structure:** Supports nested directory organization for structured content.
 
-- **UI State**: Primarily managed by React's built-in hooks (`useState`, `useEffect`). For example, the sidebar's open/closed state is managed within the `SidebarProvider` component.
-- **Form State**: Handled by `react-hook-form` for efficiency and to simplify validation and submission logic.
-- **Global State**: For this application's scale, global state management (like Redux or Zustand) is not currently necessary. Context API is used for localized state sharing, such as in the `SidebarProvider`.
+### Payments & Commerce
+- **Stripe Integration:** The application is fully integrated with **Stripe** to process payments for courses and supervision groups.
+- **Automated Enrollment:** Successful payments automatically trigger updates in Firestore to confirm a user's enrollment.
+
+### Communication
+- **Messaging System:** Includes built-in messaging features to foster community interaction.
+- **Automated Emails:** Transactional emails for welcome messages, enrollment confirmations, and other updates are sent using **Nodemailer** through a Gmail integration.
