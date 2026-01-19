@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onCourseCompletion = exports.onUserRoleChange = exports.onUserStatusUpdate = exports.onUserCreate = exports.onSupervisionJoin = exports.onTrainingJoin = exports.sendMailOnCreate = exports.sendWelcomeEmail = exports.stripeWebhook = exports.createStripeCheckout = exports.createStripeProduct = void 0;
+exports.syncSupervisionChatMembers = exports.syncTrainingChatMembers = exports.createSupervisionChat = exports.createTrainingChat = exports.onCourseCompletion = exports.onUserRoleChange = exports.onUserStatusUpdate = exports.onUserCreate = exports.onSupervisionJoin = exports.onTrainingJoin = exports.sendMailOnCreate = exports.sendWelcomeEmail = exports.stripeWebhook = exports.createStripeCheckout = exports.createStripeProduct = void 0;
 require("dotenv/config");
 const functions = __importStar(require("firebase-functions/v1"));
 const params_1 = require("firebase-functions/params");
@@ -514,5 +514,112 @@ exports.onCourseCompletion = functions.firestore
             }
         }
     }
+});
+// ============================================================================
+// CHAT & MESSAGING FUNCTIONS
+// ============================================================================
+// Helper to look up UID from email
+async function lookupUserByEmail(email) {
+    if (!email)
+        return null;
+    try {
+        const user = await admin.auth().getUserByEmail(email);
+        return user.uid;
+    }
+    catch (e) {
+        console.log(`Could not find user for email ${email}`);
+        return null;
+    }
+}
+exports.createTrainingChat = functions.firestore
+    .document("trainingCourses/{courseId}")
+    .onCreate(async (snap, context) => {
+    const courseId = context.params.courseId;
+    const data = snap.data();
+    let adminIds = [];
+    // Add Trainer if email matches a user
+    if (data.trainerEmail) {
+        const trainerId = await lookupUserByEmail(data.trainerEmail);
+        if (trainerId)
+            adminIds.push(trainerId);
+    }
+    // Add creator if available (optional tracking in future)
+    // For now, we rely on trainerEmail.
+    await db.collection("chats").doc(courseId).set({
+        name: `${data.name} (Course Chat)`,
+        type: 'training',
+        linkedEntityId: courseId,
+        adminIds: adminIds,
+        memberIds: adminIds, // Starts with just admins
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastMessageAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    console.log(`Created chat channel for Training Course ${courseId}`);
+});
+exports.createSupervisionChat = functions.firestore
+    .document("supervisionGroups/{groupId}")
+    .onCreate(async (snap, context) => {
+    const groupId = context.params.groupId;
+    const data = snap.data();
+    let adminIds = [];
+    // Add Supervisor if email matches a user
+    if (data.supervisorEmail) {
+        const supervisorId = await lookupUserByEmail(data.supervisorEmail);
+        if (supervisorId)
+            adminIds.push(supervisorId);
+    }
+    await db.collection("chats").doc(groupId).set({
+        name: `${data.name} (Supervision Chat)`,
+        type: 'supervision',
+        linkedEntityId: groupId,
+        adminIds: adminIds,
+        memberIds: adminIds,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastMessageAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    console.log(`Created chat channel for Supervision Group ${groupId}`);
+});
+exports.syncTrainingChatMembers = functions.firestore
+    .document("trainingCourses/{courseId}")
+    .onUpdate(async (change, context) => {
+    var _a;
+    const after = change.after.data();
+    const before = change.before.data();
+    // Only update if participants changed
+    if (JSON.stringify(after.participantIds) === JSON.stringify(before.participantIds))
+        return;
+    const chatId = context.params.courseId;
+    const chatRef = db.collection("chats").doc(chatId);
+    const chatDoc = await chatRef.get();
+    if (!chatDoc.exists)
+        return; // Should exist, but fail safe
+    const currentAdmins = ((_a = chatDoc.data()) === null || _a === void 0 ? void 0 : _a.adminIds) || [];
+    // Members = Admins + Participants
+    const newMembers = Array.from(new Set([...currentAdmins, ...(after.participantIds || [])]));
+    await chatRef.update({
+        memberIds: newMembers
+    });
+    console.log(`Synced members for Training Chat ${chatId}`);
+});
+exports.syncSupervisionChatMembers = functions.firestore
+    .document("supervisionGroups/{groupId}")
+    .onUpdate(async (change, context) => {
+    var _a;
+    const after = change.after.data();
+    const before = change.before.data();
+    // Only update if members changed
+    if (JSON.stringify(after.memberIds) === JSON.stringify(before.memberIds))
+        return;
+    const chatId = context.params.groupId;
+    const chatRef = db.collection("chats").doc(chatId);
+    const chatDoc = await chatRef.get();
+    if (!chatDoc.exists)
+        return;
+    const currentAdmins = ((_a = chatDoc.data()) === null || _a === void 0 ? void 0 : _a.adminIds) || [];
+    const newMembers = Array.from(new Set([...currentAdmins, ...(after.memberIds || [])]));
+    await chatRef.update({
+        memberIds: newMembers
+    });
+    console.log(`Synced members for Supervision Chat ${chatId}`);
 });
 //# sourceMappingURL=index.js.map
