@@ -131,6 +131,22 @@ export default function AdminPage() {
     toast({ title: "Action not implemented", description: "User deletion needs server-side implementation for safety."});
   }
 
+  const handleCopyEmail = async (email: string) => {
+    try {
+      await navigator.clipboard.writeText(email);
+      toast({
+        title: "Email Copied",
+        description: `${email} has been copied to your clipboard.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Copy Failed",
+        description: "Could not copy email to clipboard. Your browser may not support this feature.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const totalPending = pendingUsers.length + pendingCerts.length + pendingResources.length;
 
   return (
@@ -227,9 +243,9 @@ export default function AdminPage() {
                                     Manage Roles
                                 </DropdownMenuItem>
                             </ManageRoleDialog>
-                            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(user.email)}>Copy Email</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleCopyEmail(user.email)}>Copy Email</DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteUser(user.id)}>Delete User</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onSelect={() => handleDeleteUser(user.id)}>Delete User</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

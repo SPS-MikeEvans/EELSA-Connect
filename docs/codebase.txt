@@ -13,7 +13,7 @@ The application is built with a modern, full-featured stack:
 - **UI Components:** ShadCN UI
 - **Database:** Google Firestore
 - **Authentication:** Firebase Authentication
-- **Payments:** Stripe
+- **Payments:** Stripe (Configuration available but payment gateway currently disabled for courses/groups)
 - **Email:** Nodemailer (with Gmail)
 - **Generative AI:** Genkit
 
@@ -79,8 +79,8 @@ The project follows a standard Next.js structure, with key logic organized insid
 - **Directory Structure:** Supports nested directory organization for structured content.
 
 ### Payments & Commerce
-- **Stripe Integration:** The application is fully integrated with **Stripe** to process payments for courses and supervision groups.
-- **Automated Enrollment:** Successful payments automatically trigger updates in Firestore to confirm a user's enrollment.
+- **Stripe Integration:** The application is configured for **Stripe** integration. Currently, direct payments for courses and supervision groups are disabled in favor of external invoicing/management, but the infrastructure remains for future use.
+- **Automated Enrollment:** Enrollment logic is now direct, bypassing the payment gateway.
 
 ### Communication
 - **Messaging System:** Includes built-in messaging features to foster community interaction.

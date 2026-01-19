@@ -1,68 +1,46 @@
-# Project Summary: Excellent ELSA Connect
+# Excellent ELSA Connect - Project Summary
 
-## 1. Project Overview
-**Excellent ELSA Connect** is a centralized training hub and community platform designed for Emotional Literacy Support Assistants (ELSAs). The application's primary purpose is to facilitate the management, delivery, and tracking of professional training courses and supervision groups. It serves as a bridge between administrators/trainers and ELSA practitioners, providing a secure environment for resource sharing, communication, and course enrollment.
+## Overview
+**Excellent ELSA Connect** is a comprehensive training and community platform designed for Emotional Literacy Support Assistants (ELSAs). It serves as a central hub for managing training cohorts, supervision groups, resource sharing, and professional development.
 
-## 2. Core Functionality
+The platform streamlines the administrative workflow for trainers and line managers while providing ELSAs with a dedicated space to track their progress, access resources, and connect with peers.
 
-### User Management & Authentication
--   **Registration & Login:** Secure user authentication using Firebase Authentication.
--   **Role-Based Access Control (RBAC):** Users are assigned roles (Admin, Trainer, ELSA) which strictly dictate their access to features and data throughout the application.
--   **Profile Management:** Users can manage their personal details and view their current enrollment status.
+## Core Features
 
-### Training & Supervision Management
--   **Course Enrollment:** ELSAs can browse and join upcoming training courses.
--   **Supervision Groups:** Dedicated management for supervision cohorts, including membership tracking and session scheduling.
--   **Attendance Tracking:** Trainers and Admins can log and monitor attendance for all sessions.
--   **Capacity Management:** Automatic handling of group sizes with visual indicators for capacity limits.
+### 1. User Roles & Permissions
+The system supports distinct user roles with tailored dashboards and permissions:
+*   **ELSA:** The primary user. Can enroll in training, join supervision groups, access resources, and log journal entries.
+*   **Trainee:** An ELSA currently undergoing initial training. Has access to course materials and tracks attendance.
+*   **Line Manager:** Oversees ELSAs within their school/setting. Can view certification status and attendance reports.
+*   **Trainer:** Delivers training and leads supervision groups. Manages attendance, uploads resources, and oversees cohorts.
+*   **Admin:** Full system access to manage users, roles, courses, and platform settings.
 
-### Resource Centre
--   **Digital Library:** A robust file sharing system where Admins and Trainers can upload educational materials.
--   **Granular Permissions:** A sophisticated permission system ensures users only see resources relevant to their specific training or supervision group.
--   **Directory Structure:** Nested directory organization for structured content delivery (e.g., "Day 1 Training", "Supervision Resources").
+### 2. Training Course Management
+*   **Cohort Management:** Admins can create and schedule training cohorts (e.g., "Autumn 2024").
+*   **Enrollment:** Trainees can register for courses.
+*   **Attendance Tracking:** Trainers can log attendance for Core, Specialist, and Supervision days.
+*   **Completion:** Automated tracking of session attendance to determine graduation eligibility.
 
-### Payments & Commerce
--   **Stripe Integration:** Seamless integration with Stripe for processing payments for courses and supervision groups.
--   **Automated Enrollment:** Successful payments automatically trigger database updates to confirm user enrollment.
+### 3. Supervision Group Management
+*   **Regional Groups:** Management of ongoing supervision groups organized by region or venue.
+*   **Membership:** ELSAs can join specific supervision groups to maintain their certification status.
+*   **Capacity Management:** Visual indicators for group size and availability.
 
-### Communication
--   **Messaging System:** Built-in messaging features to foster community interaction.
--   **Automated Emails:** Transactional emails (via Nodemailer and Gmail) for welcome messages, enrollment confirmations, and updates.
+### 4. Resource Centre
+*   **Digital Library:** A secure repository for training handouts, worksheets, and intervention guides.
+*   **Granular Access:** Resources are categorized by directory permissions (e.g., "Trainee Resources" vs. "General ELSA Resources").
+*   **File Management:** Support for uploading PDFs, images, and documents with nested directory structures.
 
-## 3. Technical Architecture & Stack
+### 5. Communication & Engagement
+*   **Internal Messaging:** A direct messaging system for users to communicate with trainers or peers.
+*   **Email Notifications:** Automated transactional emails for welcome messages, status updates, and enrollment confirmations (via Nodemailer).
 
-### Frontend
--   **Framework:** **Next.js 14+ (App Router)** using React Server Components for optimal performance and SEO.
--   **Styling:** **Tailwind CSS** for utility-first, responsive design.
--   **UI Component Library:** **ShadCN UI** provides a set of accessible, reusable, and customizable components (Buttons, Cards, Dialogs, etc.).
--   **Responsiveness:** A fully responsive layout that adapts to all device sizes, utilizing custom hooks like `use-mobile.ts`.
+### 6. Technical Infrastructure
+*   **Frontend:** Next.js 15 (App Router) with React Server Components.
+*   **Styling:** Tailwind CSS with ShadCN UI for a consistent, accessible design system.
+*   **Backend:** Firebase (Authentication, Firestore, Storage, Cloud Functions).
+*   **AI Integration:** Google Genkit for future AI-driven features (e.g., resource recommendations, chatbot support).
+*   **Payments:** Stripe integration is configured for future use cases but is currently disabled for course/group enrollments.
 
-### Backend & Infrastructure (Serverless)
-The project leverages the **Firebase** ecosystem for a scalable, serverless backend:
--   **Firebase Authentication:** Handles user identity and session management.
--   **Cloud Firestore:** A NoSQL database storing all application data (users, groups, courses, resources).
--   **Firebase Storage:** Securely stores user-uploaded files and resources.
--   **Cloud Functions:** Serverless Node.js functions that handle background logic:
-    -   Stripe webhook processing.
-    -   Sending automated emails.
-    -   Database triggers (e.g., creating a Stripe product when a course is added).
-
-### Security
--   **Firestore Security Rules:** A rigorous `firestore.rules` file enforces data security at the database level. Rules are written to check user authentication state and specific role claims before allowing reads or writes.
--   **Content Security Policy (CSP):** Implemented to prevent XSS and other code injection attacks.
-
-### Key Libraries & Tools
--   **Stripe SDK:** For handling payment intents and webhooks.
--   **Nodemailer:** For reliable email delivery service.
--   **React Hook Form + Zod:** For robust form validation and handling.
--   **Lucide React:** For consistent and lightweight iconography.
-
-## 4. Design Philosophy
--   **"Act, Don't Tell":** The UI is designed to be intuitive, using subtle animations to guide users without overwhelming them.
--   **Data Privacy:** We strictly adhere to data minimization principles, collecting only essential information (Name, Email, Role) required to deliver the service, as outlined in our Privacy Policy.
-
-## 5. Future Development
-This codebase is structured for scalability. Future enhancements could include:
--   Real-time chat features using Firestore listeners.
--   Advanced analytics for training engagement.
--   Expanded certification generation and tracking.
+## Current Status
+The project is in active development. The core authentication, user management, and training/supervision modules are implemented. The payment system has been simplified to direct enrollment, removing the immediate requirement for Stripe transactions for joining groups. The resource center is fully functional with role-based access control.

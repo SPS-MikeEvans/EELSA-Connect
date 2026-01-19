@@ -52,8 +52,6 @@ export default function CreateTrainingPage() {
       coreDates: [],
       specialistDates: [],
       supervisionDates: [],
-      price: 0,
-      specialistPrice: 0,
       datesTbc: false,
     },
   });
@@ -81,7 +79,7 @@ export default function CreateTrainingPage() {
         title: "Course Created",
         description: "The training course has been successfully created.",
       });
-      router.push("/trainings");
+      router.push("/admin/trainings");
     } catch (error) {
       console.error(error);
       toast({
@@ -266,36 +264,7 @@ export default function CreateTrainingPage() {
                         </FormItem>
                     )}
                     />
-                    <FormField
-                    control={form.control}
-                    name="price"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Core Price (GBP)</FormLabel>
-                        <FormControl>
-                            <Input type="number" placeholder="e.g., 450.00" {...field} />
-                        </FormControl>
-                         <FormDescription>Base price for 6-day training.</FormDescription>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
                 </div>
-
-                <FormField
-                  control={form.control}
-                  name="specialistPrice"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Specialist Training Price (Optional)</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="e.g., 150.00" {...field} />
-                      </FormControl>
-                      <FormDescription>Additional cost for the 2 specialist days. Leave 0 if included/free.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
                 <div className="space-y-4 pt-4 border-t">
                   <FormField

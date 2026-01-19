@@ -11,5 +11,4 @@ export const supervisionFormSchema = z.object({
   startTime: z.string().min(1, "Start Time is required"),
   maxCapacity: z.coerce.number().min(1).default(8),
   dates: z.array(z.date()).min(6, "Select exactly 6 Session dates").max(6, "Select exactly 6 Session dates"),
-  price: z.coerce.number().nonnegative("Price must be a positive number").optional(),
 });

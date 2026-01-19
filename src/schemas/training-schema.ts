@@ -13,8 +13,6 @@ export const trainingFormSchema = z.object({
   coreDates: z.array(z.date()),
   specialistDates: z.array(z.date()),
   supervisionDates: z.array(z.date()),
-  price: z.coerce.number().nonnegative("Price must be a positive number").optional(),
-  specialistPrice: z.coerce.number().nonnegative("Price must be a positive number").optional(),
   datesTbc: z.boolean().default(false),
 }).superRefine((data, ctx) => {
   if (!data.datesTbc) {

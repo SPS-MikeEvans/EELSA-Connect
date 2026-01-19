@@ -65,7 +65,8 @@ const updateLastSeen = (uid: string) => {
     const userDocRef = doc(db, 'users', uid);
     const data = { lastSeen: serverTimestamp() };
     updateDoc(userDocRef, data)
-        .catch(async (serverError) => {
+        .catch((serverError) => {
+            // Catch all errors from the update, not just permission denied
             const permissionError = new FirestorePermissionError({
                 path: userDocRef.path,
                 operation: 'update',
@@ -81,9 +82,12 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     const [userRole, setUserRole] = useState<UserRole | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    // Effect for READING user data
     useEffect(() => {
-        if (authLoading) return;
-
+        if (authLoading) {
+            setIsLoading(true);
+            return;
+        };
         if (!authUser) {
             setUserDetails(null);
             setUserRole(null);
@@ -92,8 +96,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         }
 
         const userDocRef = doc(db, 'users', authUser.uid);
-        
-        // This listener only READS data.
         const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data() as UserDetails;
@@ -108,28 +110,38 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 setUserRole(null);
             }
             setIsLoading(false);
+        }, (error) => {
+            console.error("Error fetching user details:", error);
+            setIsLoading(false);
         });
-        
-        // This effect handles WRITING the lastSeen timestamp.
-        // It runs once on auth change and then on an interval.
-        updateLastSeen(authUser.uid); // Initial update
+
+        return () => unsubscribe();
+    }, [authUser, authLoading]);
+
+    // Effect for WRITING lastSeen timestamp
+    useEffect(() => {
+        if (!authUser) return;
+
+        // Initial update on login
+        updateLastSeen(authUser.uid);
+
+        // Set up interval to update periodically
         const intervalId = setInterval(() => {
             if (auth.currentUser) {
               updateLastSeen(auth.currentUser.uid);
             }
-        }, 60 * 1000); // Update every 60 seconds
+        }, 5 * 60 * 1000); // Update every 5 minutes
 
         return () => {
-            unsubscribe();
             clearInterval(intervalId);
         }
-    }, [authUser, authLoading]);
+    }, [authUser]);
 
     const value = {
         user: authUser,
         userDetails,
         userRole,
-        isLoading: isLoading || authLoading,
+        isLoading: isLoading,
     };
 
     return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
