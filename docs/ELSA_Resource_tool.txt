@@ -1,0 +1,190 @@
+# ELSA Training Hub: Functional Specification
+
+This document outlines the features and data architecture of the ELSA Training Hub application. It is intended to serve as a blueprint for understanding the system's capabilities and for potential migration to another technology stack like PHP/MySQL.
+
+---
+
+## 1. Core Concepts & User Roles
+
+The platform is a role-based system designed to manage training, supervision, and resources for Emotional Literacy Support Assistants (ELSAs).
+
+### User Roles:
+- **User:** The base role for a new registrant with no specific permissions.
+- **Trainee:** A user who is currently enrolled in an ELSA training course.
+- **ELSA:** A qualified user who has completed training. They can join supervision groups and access ELSA-specific features.
+- **Line Manager:** A user responsible for one or more ELSAs within an organization (e.g., a school). They can invite staff and view their progress.
+- **Trainer:** An authorized user who can create and manage training courses and supervision groups, manage attendance, and upload resources.
+- **Admin:** A super-user with full access to all platform management features, including user approvals, role management, and content administration.
+
+---
+
+## 2. Key Feature Areas
+
+### 2.1. User Management & Authentication
+
+- **Registration:** Users can register for an account by providing a full name, email, and password. They must select their intended role upon registration.
+- **Role-Specific Registration:**
+    - **ELSA:** Must provide details of their training (where, when), upload a certificate file, and provide their Line Manager's email. Their certification status is `pending` until verified by an Admin.
+    - **Line Manager/Trainer:** Must provide their organization/service name. Their account status is `pending` until approved by an Admin.
+- **Login/Logout:** Standard email and password authentication.
+- **Password Reset:** Users can request a password reset link via email.
+- **Profile Management:** Authenticated users can view and update their full name and profile picture.
+- **Role-Based Access Control (RBAC):** The entire application is gated by user roles. UI elements and page access are restricted based on the user's primary role and any additional assigned roles.
+
+### 2.2. Admin & Management Dashboard
+
+- **User Approval Queue:** Admins can view a list of all users with a `pending` approval status (Line Managers, Trainers) and either `approve` or `reject` their registration.
+- **Certificate Verification Queue:** Admins can view a list of ELSAs with a `pending` certification status. They can view the uploaded certificate file and `approve` or `reject` it.
+- **User Directory:** Admins can view a table of all users, their roles, organization, and status.
+- **Role Management:** Admins can change a user's primary role and assign/remove additional roles (e.g., grant a Trainer Line Manager permissions).
+- **Content Management:** Admins and Trainers have access to create, edit, and delete Training Courses and Supervision Groups.
+
+### 2.3. Training Courses
+
+- **Course Creation (Admin/Trainer):**
+    - Define course name, lead trainer details, venue information, capacity, and schedule (start/end times).
+    - Schedule specific dates for Core Training (6), Specialist Days (2), and Supervision Days (2). A "Dates TBC" option is available.
+- **Course Discovery:** Users can browse a list of all available training courses.
+- **Course Details Page:** A public-facing page showing all details of a course, including the full schedule and current enrollment vs. capacity.
+- **Enrollment:** Eligible users (typically 'Trainee' role) can enroll in a course. The system prevents a user from enrolling in more than one course at a time.
+- **Attendance Tracking (Admin/Trainer):** A matrix (table) view allows trainers to mark attendance for each participant for every scheduled session.
+- **Automated Graduation:** When a trainee's attendance record shows they have completed all required sessions, their role is automatically promoted from 'Trainee' to 'ELSA'.
+
+### 2.4. Supervision Groups
+
+- **Group Creation (Admin/Trainer):**
+    - Define group name, supervisor details, region, venue information, capacity (typically 8), and session time.
+    - Schedule 6 specific session dates.
+- **Group Discovery:** Users can browse a list of all available supervision groups.
+- **Group Details Page:** A public-facing page showing group details, capacity, and session dates.
+- **Joining a Group:** Qualified ELSAs who are not already in a group can join an available supervision group.
+- **Attendance Tracking (Admin/Trainer):** Similar to courses, a matrix allows for tracking member attendance.
+
+### 2.5. Resource Center
+
+- **Hierarchical Structure:** Resources are organized within a folder-like directory system.
+- **Directory Management (Admin/Trainer):** Admins/Trainers can create, rename, and delete directories. Deleting a directory also deletes all files within it.
+- **Resource Upload (Admin/Trainer):** Admins/Trainers can upload files directly into the root or any directory, providing a title, description, type, and purpose.
+- **File & Image Previews:** The resource details page displays an image preview for image files or a generic icon for other file types.
+- **User Submissions (All Users):** Any authenticated user can submit a resource for consideration. This creates a "submission" record that enters an approval queue.
+- **Submission Approval (Admin/Trainer):** Admins/Trainers can review submitted resources, approve them (which moves the file to the live resource center), or reject them.
+
+### 2.6. Communication & Community
+
+- **Real-Time Messaging:** The application includes a real-time forum/messaging system.
+- **Channels:** Conversations are organized into channels. Any user can create a public channel.
+- **Automated Group Chats:** A private chat channel is automatically created for each Training Course and Supervision Group.
+- **Chat Access Control:** Access to group chats is restricted to members of that group and Admins/Trainers, enforced by security rules.
+
+### 2.7. ELSA-Specific Features
+
+- **Private Reflective Journal:** ELSAs have access to a private journal where they can create, read, update, and delete entries. This data is strictly private to the user.
+- **Certificate Viewer:** Users can view a list of all certificates they have been awarded by the platform (e.g., upon course completion) and download them.
+
+---
+
+## 3. Data Models & Relationships (for MySQL Schema)
+
+This section outlines the core data entities and their relationships, which would correspond to tables in a MySQL database.
+
+- **`users`**
+    - `id` (Primary Key, e.g., UUID or INT)
+    - `fullName`, `email`, `password_hash`, `photoURL`
+    - `role` (ENUM: 'User', 'Trainee', 'ELSA', 'LineManager', 'Trainer', 'Admin')
+    - `approvalStatus` (ENUM: 'pending', 'approved', 'rejected')
+    - `certificationStatus` (ENUM: 'pending', 'approved', 'rejected', NULL)
+    - `certificationUploadPath`, `certificationWhereTrained`, `certificationYear`
+    - `schoolSetting`, `organization`, `lineManagerEmail`
+    - `enrolledCourseId` (FK to `training_courses.id`, NULLABLE)
+    - `supervisionGroupId` (FK to `supervision_groups.id`, NULLABLE)
+    - `createdAt`, `updatedAt`, `lastSeen`
+
+- **`user_roles` (Pivot Table for additional roles)**
+    - `user_id` (FK to `users.id`)
+    - `role` (VARCHAR or ENUM)
+
+- **`training_courses`**
+    - `id` (PK)
+    - `name`, `trainerName`, `trainerEmail`, `venueName`, `venueAddress`, `maxCapacity`, `startTime`, `endTime`, `datesTbc` (BOOLEAN)
+    - `status` (ENUM: 'active', 'archived')
+    - `createdAt`, `updatedAt`
+
+- **`course_dates`**
+    - `id` (PK)
+    - `course_id` (FK to `training_courses.id`)
+    - `date` (DATETIME)
+    - `type` (ENUM: 'core', 'specialist', 'supervision')
+
+- **`course_participants` (Pivot Table)**
+    - `user_id` (FK to `users.id`)
+    - `course_id` (FK to `training_courses.id`)
+
+- **`course_attendance`**
+    - `user_id` (FK to `users.id`)
+    - `date_id` (FK to `course_dates.id`)
+
+- **`supervision_groups`**
+    - `id` (PK)
+    - `name`, `supervisorName`, `supervisorEmail`, `region`, `venueName`, `venueAddress`, `startTime`, `maxCapacity`
+    - `status` (ENUM: 'active', 'archived')
+    - `createdAt`, `updatedAt`
+
+- **`supervision_group_dates`**
+    - `id` (PK)
+    - `group_id` (FK to `supervision_groups.id`)
+    - `date` (DATETIME)
+
+- **`supervision_group_members` (Pivot Table)**
+    - `user_id` (FK to `users.id`)
+    - `group_id` (FK to `supervision_groups.id`)
+
+- **`supervision_attendance`**
+     - `user_id` (FK to `users.id`)
+     - `date_id` (FK to `supervision_group_dates.id`)
+
+- **`directories`**
+    - `id` (PK)
+    - `name`
+    - `parent_id` (FK to `directories.id`, NULLABLE for root)
+
+- **`resources`**
+    - `id` (PK)
+    - `title`, `description`, `type`, `purpose`, `fileType`, `downloadUrl`, `storagePath`
+    - `directory_id` (FK to `directories.id`, NULLABLE for root files)
+    - `uploaded_by_id` (FK to `users.id`)
+    - `createdAt`
+
+- **`resource_submissions`**
+    - `id` (PK)
+    - `title`, `description`, `type`, `purpose`, `downloadUrl`, `storagePath`
+    - `submitted_by_id` (FK to `users.id`)
+    - `status` (ENUM: 'pending', 'approved', 'rejected')
+    - `submittedAt`
+
+- **`chats` (Channels)**
+    - `id` (PK)
+    - `name`, `type` (ENUM: 'public', 'training', 'supervision')
+    - `linked_entity_id` (ID of the course or group, NULLABLE)
+    - `createdAt`, `lastMessageAt`
+
+- **`chat_members` (Pivot Table)**
+    - `user_id` (FK)
+    - `chat_id` (FK)
+
+- **`messages`**
+    - `id` (PK)
+    - `chat_id` (FK to `chats.id`)
+    - `sender_id` (FK to `users.id`)
+    - `content` (TEXT)
+    - `createdAt`
+
+- **`journal_entries`**
+    - `id` (PK)
+    - `user_id` (FK to `users.id`)
+    - `title`, `content` (TEXT)
+    - `createdAt`, `updatedAt`
+
+- **`certificates`**
+    - `id` (PK)
+    - `user_id` (FK to `users.id`)
+    - `course_name`, `date_awarded`, `downloadUrl`
