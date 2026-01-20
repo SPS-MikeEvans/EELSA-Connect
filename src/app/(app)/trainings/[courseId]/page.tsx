@@ -27,6 +27,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChatWindow } from "@/components/chat/chat-window";
 import { cn } from "@/lib/utils";
+import { ensureChatExists } from "@/lib/chat-utils";
 
 export default function TrainingDetailsPage() {
   const params = useParams();
@@ -50,6 +51,17 @@ export default function TrainingDetailsPage() {
     });
     return () => unsubscribe();
   }, [courseId]);
+
+  // Self-Healing: Ensure chat exists if I am the trainer/admin
+  useEffect(() => {
+    const checkChat = async () => {
+        if (course && user && (userRole === 'Admin' || userRole === 'Trainer')) {
+            // Only try to fix if it's my course or I'm admin
+            await ensureChatExists(courseId, 'training', course.name, [user.uid]);
+        }
+    }
+    checkChat();
+  }, [course, user, userRole, courseId]);
 
   const handleJoin = async () => {
     if (!user) return;

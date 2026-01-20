@@ -134,19 +134,21 @@ service cloud.firestore {
     }
     
     match /chats/{chatId} {
+      // Allow read if user is a member OR is an Admin OR is a Trainer
       allow read: if isSignedIn() && (
-        resource.data.memberIds.hasAny([request.auth.uid]) || isAdmin()
+        resource.data.memberIds.hasAny([request.auth.uid]) || isAdmin() || isTrainer()
       );
-      // Only admins/system can update chat metadata
-      allow update: if isAdmin(); 
-      allow create: if isAdmin(); 
+      // Trainers and Admins can update/create chats (for self-healing or management)
+      allow update, create: if isAdmin() || isTrainer(); 
 
       match /messages/{messageId} {
+        // Allow read if user is member OR Admin OR Trainer
         allow read: if isSignedIn() && (
-          get(/databases/$(database)/documents/chats/$(chatId)).data.memberIds.hasAny([request.auth.uid]) || isAdmin()
+          get(/databases/$(database)/documents/chats/$(chatId)).data.memberIds.hasAny([request.auth.uid]) || isAdmin() || isTrainer()
         );
+        // Messages can be created by members OR Admins OR Trainers
         allow create: if isSignedIn() && (
-           get(/databases/$(database)/documents/chats/$(chatId)).data.memberIds.hasAny([request.auth.uid])
+           get(/databases/$(database)/documents/chats/$(chatId)).data.memberIds.hasAny([request.auth.uid]) || isAdmin() || isTrainer()
         );
       }
     }

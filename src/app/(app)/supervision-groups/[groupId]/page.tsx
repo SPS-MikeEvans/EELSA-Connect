@@ -27,6 +27,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChatWindow } from "@/components/chat/chat-window";
 import { cn } from "@/lib/utils";
+import { ensureChatExists } from "@/lib/chat-utils";
 
 
 export default function SupervisionGroupDetailsPage() {
@@ -51,6 +52,16 @@ export default function SupervisionGroupDetailsPage() {
     });
     return () => unsubscribe();
   }, [groupId]);
+
+  // Self-Healing: Ensure chat exists if I am the supervisor/admin
+  useEffect(() => {
+    const checkChat = async () => {
+        if (group && user && (userRole === 'Admin' || userRole === 'Trainer')) {
+            await ensureChatExists(groupId, 'supervision', group.name, [user.uid]);
+        }
+    }
+    checkChat();
+  }, [group, user, userRole, groupId]);
 
   const handleJoin = async () => {
     if (!user) return;
