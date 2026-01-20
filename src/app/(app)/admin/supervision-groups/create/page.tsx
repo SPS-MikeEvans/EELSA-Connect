@@ -27,6 +27,7 @@ import { format } from "date-fns";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supervisionFormSchema } from "@/schemas/supervision-schema";
+import { RegionAutocomplete } from "@/components/common/region-autocomplete";
 
 export default function CreateSupervisionGroupPage() {
   const router = useRouter();
@@ -55,8 +56,12 @@ export default function CreateSupervisionGroupPage() {
     try {
       const groupId = doc(db, "supervisionGroups", "temp").id;
       
+      // Normalise region
+      const region = values.region.trim().replace(/\b\w/g, l => l.toUpperCase());
+
       const groupData = {
         ...values,
+        region,
         id: groupId,
         ownerId: user.uid,
         createdAt: serverTimestamp(),
@@ -142,9 +147,11 @@ export default function CreateSupervisionGroupPage() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Region / Area</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. Southampton" {...field} />
-                  </FormControl>
+                  <RegionAutocomplete 
+                    value={field.value} 
+                    onChange={field.onChange} 
+                    placeholder="Select region (e.g. Stafford)" 
+                  />
                   <FormMessage />
                 </FormItem>
               )}

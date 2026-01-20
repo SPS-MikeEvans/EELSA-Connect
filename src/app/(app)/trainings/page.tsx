@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { collection, getDocs, query, orderBy, deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
@@ -16,11 +16,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { useUser } from "@/providers/user-provider";
-import { Calendar, MapPin, Users, Loader2, MoreVertical, Edit, Trash2 } from "lucide-react";
+import { Calendar, MapPin, Users, Loader2, MoreVertical, Edit, Trash2, Filter } from "lucide-react";
 import { format } from "date-fns";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 export default function TrainingsPage() {
@@ -28,6 +29,7 @@ export default function TrainingsPage() {
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<string>("all");
   const { toast } = useToast();
 
   const canManage = role === "Admin" || role === "Trainer";
@@ -76,6 +78,18 @@ export default function TrainingsPage() {
     }
   };
 
+  const regions = useMemo(() => {
+      const r = new Set(courses.map(c => c.region).filter(Boolean));
+      return Array.from(r).sort();
+  }, [courses]);
+
+  const filteredCourses = useMemo(() => {
+      return courses.filter(course => {
+          if (selectedRegion === "all") return true;
+          return course.region === selectedRegion;
+      });
+  }, [courses, selectedRegion]);
+
   if (userLoading || loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -98,27 +112,45 @@ export default function TrainingsPage() {
 
   return (
     <div className="container py-10 space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Training Courses</h1>
           <p className="text-muted-foreground">
             Browse and join upcoming ELSA training cohorts.
           </p>
         </div>
-        {canManage && (
-          <Button asChild>
-            <Link href="/admin/trainings">Create Course</Link>
-          </Button>
-        )}
+        <div className="flex items-center gap-2 w-full md:w-auto">
+            {regions.length > 0 && (
+                <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+                    <SelectTrigger className="w-full md:w-[180px]">
+                        <div className="flex items-center gap-2">
+                            <Filter className="h-4 w-4 text-muted-foreground" />
+                            <SelectValue placeholder="Filter Region" />
+                        </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Regions</SelectItem>
+                        {regions.map(r => (
+                            <SelectItem key={r as string} value={r as string}>{r as string}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            )}
+            {canManage && (
+            <Button asChild>
+                <Link href="/admin/trainings">Create Course</Link>
+            </Button>
+            )}
+        </div>
       </div>
 
-      {courses.length === 0 ? (
+      {filteredCourses.length === 0 ? (
         <div className="text-center py-10 border rounded-lg bg-muted/10">
           <p className="text-muted-foreground">No active training courses found.</p>
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {courses.map((course) => {
+          {filteredCourses.map((course) => {
              const participantCount = course.participantIds?.length || 0;
              const isFull = participantCount >= course.maxCapacity;
              const isJoined = userDetails?.enrolledCourseId === course.id;
@@ -165,9 +197,12 @@ export default function TrainingsPage() {
                 )}
               <CardHeader>
                 <div className="flex justify-between items-start">
-                  <Badge variant={isJoined ? "default" : (isFull ? "destructive" : "secondary")}>
-                    {isJoined ? "Enrolled" : (isFull ? "Full" : "Open")}
-                  </Badge>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant={isJoined ? "default" : (isFull ? "destructive" : "secondary")}>
+                        {isJoined ? "Enrolled" : (isFull ? "Full" : "Open")}
+                    </Badge>
+                    <Badge variant="outline">{course.region || "General"}</Badge>
+                  </div>
                   {isJoined && <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">Your Course</Badge>}
                 </div>
                 <CardTitle className="mt-2 line-clamp-2 pr-10">{course.name}</CardTitle>

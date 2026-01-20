@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { collection, getDocs, query, orderBy, deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
@@ -16,17 +16,19 @@ import {
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { useUser } from "@/providers/user-provider";
-import { Calendar, MapPin, Users, Loader2, UserCircle, Plus, MoreVertical, Edit, Trash2 } from "lucide-react";
+import { Calendar, MapPin, Users, Loader2, UserCircle, Plus, MoreVertical, Edit, Trash2, Filter } from "lucide-react";
 import { format } from "date-fns";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function SupervisionGroupsPage() {
   const { user, userRole: role, isLoading: userLoading, userDetails } = useUser();
   const [groups, setGroups] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<string>("all");
   const { toast } = useToast();
 
   const canManage = role === "Admin" || role === "Trainer";
@@ -76,6 +78,18 @@ export default function SupervisionGroupsPage() {
       }
   }
 
+  const regions = useMemo(() => {
+      const r = new Set(groups.map(g => g.region).filter(Boolean));
+      return Array.from(r).sort();
+  }, [groups]);
+
+  const filteredGroups = useMemo(() => {
+      return groups.filter(group => {
+          if (selectedRegion === "all") return true;
+          return group.region === selectedRegion;
+      });
+  }, [groups, selectedRegion]);
+
   if (userLoading || loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -98,23 +112,41 @@ export default function SupervisionGroupsPage() {
 
   return (
     <div className="container py-10 space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Supervision Groups</h1>
           <p className="text-muted-foreground">
             Find and join a supervision group in your region.
           </p>
         </div>
-        {canManage && (
-          <Button asChild>
-            <Link href="/admin/supervision-groups/create">
-                 <Plus className="mr-2 h-4 w-4" /> Create Group
-            </Link>
-          </Button>
-        )}
+        <div className="flex items-center gap-2 w-full md:w-auto">
+            {regions.length > 0 && (
+                <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+                    <SelectTrigger className="w-full md:w-[180px]">
+                        <div className="flex items-center gap-2">
+                            <Filter className="h-4 w-4 text-muted-foreground" />
+                            <SelectValue placeholder="Filter Region" />
+                        </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Regions</SelectItem>
+                        {regions.map(r => (
+                            <SelectItem key={r as string} value={r as string}>{r as string}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            )}
+            {canManage && (
+            <Button asChild>
+                <Link href="/admin/supervision-groups/create">
+                    <Plus className="mr-2 h-4 w-4" /> Create Group
+                </Link>
+            </Button>
+            )}
+        </div>
       </div>
 
-      {groups.length === 0 ? (
+      {filteredGroups.length === 0 ? (
         <div className="text-center py-10 border rounded-lg bg-muted/10">
           <p className="text-muted-foreground">No supervision groups found.</p>
           {canManage && (
@@ -125,7 +157,7 @@ export default function SupervisionGroupsPage() {
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {groups.map((group) => {
+          {filteredGroups.map((group) => {
              const memberCount = group.memberIds?.length || 0;
              const isOverCapacity = memberCount > 8; // Target is 8
              const isJoined = userDetails?.supervisionGroupId === group.id;
@@ -178,8 +210,9 @@ export default function SupervisionGroupsPage() {
                 <div className="flex justify-between items-start">
                    <div className="flex gap-2 flex-wrap">
                       <Badge variant={isJoined ? "default" : "secondary"}>
-                        {isJoined ? "Your Group" : (group.region || "General")}
+                        {isJoined ? "Your Group" : (isOverCapacity ? "Full" : "Open")}
                       </Badge>
+                      <Badge variant="outline">{group.region || "General"}</Badge>
                       {isOverCapacity && <Badge variant="destructive">Over Capacity</Badge>}
                    </div>
                 </div>

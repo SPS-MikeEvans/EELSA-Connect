@@ -32,6 +32,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { RoleGate } from "@/components/auth/role-gate";
 import { trainingFormSchema } from "@/schemas/training-schema";
+import { RegionAutocomplete } from "@/components/common/region-autocomplete";
 
 export default function CreateTrainingPage() {
   const router = useRouter();
@@ -44,6 +45,7 @@ export default function CreateTrainingPage() {
       name: "",
       trainerName: "",
       trainerEmail: "",
+      region: "",
       venueName: "",
       venueAddress: "",
       maxCapacity: 20,
@@ -63,8 +65,11 @@ export default function CreateTrainingPage() {
     try {
       const { coreDates, specialistDates, supervisionDates, ...restOfValues } = values;
       
+      const region = values.region.trim().replace(/\b\w/g, l => l.toUpperCase());
+
       await addDoc(collection(db, "trainingCourses"), {
         ...restOfValues,
+        region,
         dates: {
           core: values.datesTbc ? [] : coreDates,
           specialist: values.datesTbc ? [] : specialistDates,
@@ -191,6 +196,22 @@ export default function CreateTrainingPage() {
                     )}
                   />
                 </div>
+                
+                <FormField
+                  control={form.control}
+                  name="region"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Region / Area</FormLabel>
+                      <RegionAutocomplete 
+                        value={field.value} 
+                        onChange={field.onChange} 
+                        placeholder="Select region (e.g. Stafford)" 
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <div className="grid grid-cols-2 gap-4">
                    <FormField

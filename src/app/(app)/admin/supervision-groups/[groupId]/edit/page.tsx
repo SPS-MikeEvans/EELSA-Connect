@@ -29,6 +29,7 @@ import { CalendarIcon, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supervisionFormSchema } from "@/schemas/supervision-schema";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { RegionAutocomplete } from "@/components/common/region-autocomplete";
 
 
 export default function EditSupervisionGroupPage() {
@@ -66,12 +67,12 @@ export default function EditSupervisionGroupPage() {
             name: data.name,
             supervisorName: data.supervisorName,
             supervisorEmail: data.supervisorEmail,
-            region: data.region,
+            region: data.region || "",
             venueName: data.venueName,
             venueAddress: data.venueAddress,
             startTime: data.startTime,
             maxCapacity: data.maxCapacity,
-            dates: data.dates.map((d: any) => d.toDate()),
+            dates: data.dates ? data.dates.map((d: any) => d.toDate()) : [],
           });
         }
       } catch (error) {
@@ -89,8 +90,12 @@ export default function EditSupervisionGroupPage() {
     setIsSubmitting(true);
     try {
       const groupRef = doc(db, "supervisionGroups", groupId);
+      
+      const region = values.region.trim().replace(/\b\w/g, l => l.toUpperCase());
+
       await updateDoc(groupRef, {
         ...values,
+        region,
         updatedAt: serverTimestamp(),
       });
 
@@ -202,9 +207,11 @@ export default function EditSupervisionGroupPage() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Region / Area</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. Southampton" {...field} />
-                  </FormControl>
+                  <RegionAutocomplete 
+                    value={field.value} 
+                    onChange={field.onChange} 
+                    placeholder="Select region (e.g. Stafford)" 
+                  />
                   <FormMessage />
                 </FormItem>
               )}

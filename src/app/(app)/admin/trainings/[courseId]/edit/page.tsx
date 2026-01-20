@@ -32,6 +32,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { trainingFormSchema } from "@/schemas/training-schema";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { RegionAutocomplete } from "@/components/common/region-autocomplete";
 
 export default function EditTrainingPage() {
   const router = useRouter();
@@ -49,6 +50,7 @@ export default function EditTrainingPage() {
       trainerEmail: "",
       venueName: "",
       venueAddress: "",
+      region: "",
       maxCapacity: 20,
       startTime: "",
       endTime: "",
@@ -73,6 +75,7 @@ export default function EditTrainingPage() {
             name: data.name,
             trainerName: data.trainerName,
             trainerEmail: data.trainerEmail,
+            region: data.region || "",
             venueName: data.venueName,
             venueAddress: data.venueAddress,
             maxCapacity: data.maxCapacity,
@@ -99,8 +102,12 @@ export default function EditTrainingPage() {
     setIsSubmitting(true);
     try {
       const courseRef = doc(db, "trainingCourses", courseId);
+      
+      const region = values.region.trim().replace(/\b\w/g, l => l.toUpperCase());
+
       await updateDoc(courseRef, {
         ...values,
+        region,
         updatedAt: serverTimestamp(),
       });
 
@@ -202,6 +209,22 @@ export default function EditTrainingPage() {
               )}
             />
           </div>
+          
+          <FormField
+              control={form.control}
+              name="region"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Region / Area</FormLabel>
+                  <RegionAutocomplete 
+                    value={field.value} 
+                    onChange={field.onChange} 
+                    placeholder="Select region (e.g. Stafford)" 
+                  />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField

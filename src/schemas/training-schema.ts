@@ -5,6 +5,7 @@ export const trainingFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   trainerName: z.string().min(2, "Trainer Name is required"),
   trainerEmail: z.string().email("Invalid email address"),
+  region: z.string().min(2, "Region is required"),
   venueName: z.string().min(2, "Venue Name is required"),
   venueAddress: z.string().min(5, "Venue Address is required"),
   maxCapacity: z.coerce.number().min(1, "Capacity must be at least 1"),
