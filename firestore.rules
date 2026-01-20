@@ -67,11 +67,11 @@ service cloud.firestore {
     
     // Feedbacks collection:
     // - Any signed-in user can create feedback.
-    // - No one can read/update/delete individual feedbacks from the client to ensure anonymity and data integrity.
-    // - Trainers/Admins would query this via a secured backend/function.
+    // - Trainers and Admins can read feedback (and run aggregation queries).
     match /feedbacks/{feedbackId} {
         allow create: if isSignedIn();
-        allow read, update, delete: if false; 
+        allow read: if isAdmin() || isTrainer();
+        allow update, delete: if isAdmin();
     }
 
     // Mail collection: For triggering emails via Cloud Functions. Client creates only.
