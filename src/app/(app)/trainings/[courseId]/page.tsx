@@ -107,6 +107,11 @@ export default function TrainingDetailsPage() {
   const isFull = (course.participantIds?.length || 0) >= (course.maxCapacity || 20);
   const canAccessChat = isJoined || userRole === 'Admin' || userRole === 'Trainer';
 
+  // Logic to hide registration for Staff roles (Trainer, LineManager) unless they are strictly a Trainee
+  // But wait, the role is exclusive usually. If role is Trainer, they shouldn't join.
+  // Exception: Admin might want to test, but requirement says hide.
+  const isStaff = userRole === 'Trainer' || userRole === 'LineManager';
+
   return (
     <div className="container mx-auto py-8">
       <Tabs defaultValue="details" className="max-w-4xl mx-auto">
@@ -213,36 +218,41 @@ export default function TrainingDetailsPage() {
 
                 </CardContent>
                 <CardFooter className="flex justify-end pt-6 border-t bg-muted/10">
-                    {isJoined ? (
-                        <Button disabled size="lg" className="w-full md:w-auto">
-                            <CheckCircle className="mr-2 h-5 w-5" /> Enrollment Confirmed
-                        </Button>
-                    ) : (
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button 
-                                    size="lg" 
-                                    className="w-full md:w-auto font-headline text-lg"
-                                    disabled={isFull || !!userDetails?.enrolledCourseId} // Check logic
-                                >
-                                    {isFull ? "Course Full" : "Register for Course"}
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Confirm Registration</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Are you sure you want to join <strong>{course.name}</strong>?
-                                        <br/><br/>
-                                        By joining, you confirm that you can attend the scheduled dates.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={handleJoin}>Confirm Registration</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                    {/* Hide buttons completely for staff unless they are already joined (e.g. testing) */}
+                    {!isStaff && (
+                        <>
+                        {isJoined ? (
+                            <Button disabled size="lg" className="w-full md:w-auto">
+                                <CheckCircle className="mr-2 h-5 w-5" /> Enrollment Confirmed
+                            </Button>
+                        ) : (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button 
+                                        size="lg" 
+                                        className="w-full md:w-auto font-headline text-lg"
+                                        disabled={isFull || !!userDetails?.enrolledCourseId} // Check logic
+                                    >
+                                        {isFull ? "Course Full" : "Register for Course"}
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Confirm Registration</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Are you sure you want to join <strong>{course.name}</strong>?
+                                            <br/><br/>
+                                            By joining, you confirm that you can attend the scheduled dates.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleJoin}>Confirm Registration</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )}
+                        </>
                     )}
                 </CardFooter>
             </Card>

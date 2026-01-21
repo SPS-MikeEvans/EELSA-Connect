@@ -99,6 +99,9 @@ export default function SupervisionGroupDetailsPage() {
   const userHasGroup = !!userDetails?.supervisionGroupId;
   const canAccessChat = isJoined || userRole === 'Admin' || userRole === 'Trainer';
 
+  // Hide join logic for staff
+  const isStaff = userRole === 'Trainer' || userRole === 'LineManager';
+
   return (
     <div className="container mx-auto py-8">
       <Tabs defaultValue="details" className="max-w-4xl mx-auto">
@@ -171,34 +174,38 @@ export default function SupervisionGroupDetailsPage() {
 
                 </CardContent>
                 <CardFooter className="flex justify-end pt-4 border-t">
-                    {isJoined ? (
-                        <Button disabled className="w-full md:w-auto">
-                            <CheckCircle className="mr-2 h-4 w-4" /> You have joined this group
-                        </Button>
-                    ) : (
-                        <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button 
-                                disabled={isFull || (userHasGroup && role !== 'Admin')} // Disable if full or already in another group (unless admin)
-                                className="w-full md:w-auto"
-                            >
-                                {userHasGroup && role !== 'Admin' ? "Already in a Group" : (isFull ? "Group Full" : "Join Group")}
+                    {!isStaff && (
+                        <>
+                        {isJoined ? (
+                            <Button disabled className="w-full md:w-auto">
+                                <CheckCircle className="mr-2 h-4 w-4" /> You have joined this group
                             </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                            <AlertDialogTitle>Join Supervision Group</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Are you sure you want to join <strong>{group.name}</strong>?
-                                This will be your assigned supervision cohort.
-                            </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleJoin}>Confirm Join</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                        </AlertDialog>
+                        ) : (
+                            <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button 
+                                    disabled={isFull || (userHasGroup && role !== 'Admin')} // Disable if full or already in another group (unless admin)
+                                    className="w-full md:w-auto"
+                                >
+                                    {userHasGroup && role !== 'Admin' ? "Already in a Group" : (isFull ? "Group Full" : "Join Group")}
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Join Supervision Group</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Are you sure you want to join <strong>{group.name}</strong>?
+                                    This will be your assigned supervision cohort.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleJoin}>Confirm Join</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                            </AlertDialog>
+                        )}
+                        </>
                     )}
                 </CardFooter>
             </Card>

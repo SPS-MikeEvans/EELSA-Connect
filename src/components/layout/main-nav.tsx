@@ -40,9 +40,10 @@ const menuItems = [
   { href: "/supervision-groups", label: "Supervision Groups", icon: Users },
 ];
 
+// Updated 'Certificates' roles to include Trainer and LineManager
 const elsaMenuItems: { href: string, label: string, icon: any, roles: UserRole[] }[] = [
     { href: "/journal", label: "My Journal", icon: BookMarked, roles: ['ELSA'] },
-    { href: "/certificates", label: "Certificates", icon: Award, roles: ['ELSA', 'Trainee'] },
+    { href: "/certificates", label: "Certificates", icon: Award, roles: ['ELSA', 'Trainee', 'Trainer', 'LineManager'] },
     { href: "/messages", label: "Messaging", icon: MessageSquare, roles: ['ELSA', 'Trainee', 'Trainer', 'Admin', 'LineManager'] },
 ]
 
