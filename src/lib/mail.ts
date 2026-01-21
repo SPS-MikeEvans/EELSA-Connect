@@ -1,19 +1,27 @@
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 
+export interface EmailAttachment {
+  filename: string;
+  content: string; // base64 string
+  encoding?: string; // usually 'base64'
+  path?: string; // or path to file
+}
+
 interface SendEmailParams {
   to: string;
   subject: string;
   html: string;
+  attachments?: EmailAttachment[];
 }
 
 /**
  * Adds an email request to the Firestore 'mail' collection.
  * The Cloud Function 'sendMailOnCreate' will pick this up and send it.
  */
-export async function sendEmail({ to, subject, html }: SendEmailParams) {
+export async function sendEmail({ to, subject, html, attachments }: SendEmailParams) {
   try {
-    await addDoc(collection(db, "mail"), {
+    const emailData: any = {
       to,
       subject,
       html,
@@ -21,7 +29,13 @@ export async function sendEmail({ to, subject, html }: SendEmailParams) {
       delivery: {
         state: "PENDING"
       }
-    });
+    };
+
+    if (attachments && attachments.length > 0) {
+      emailData.attachments = attachments;
+    }
+
+    await addDoc(collection(db, "mail"), emailData);
     return true;
   } catch (error) {
     console.error("Failed to queue email:", error);

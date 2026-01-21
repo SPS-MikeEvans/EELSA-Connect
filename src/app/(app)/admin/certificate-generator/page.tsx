@@ -5,7 +5,9 @@ import {
   FileText, 
   Download, 
   Loader2, 
-  AlertCircle
+  AlertCircle,
+  Send,
+  Mail
 } from 'lucide-react';
 import { RoleGate } from '@/components/auth/role-gate';
 import { FileUpload } from './_components/file-upload';
@@ -15,12 +17,18 @@ import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { UserRole } from '@/providers/user-provider';
+import { sendEmail } from '@/lib/mail';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 enum AppStatus {
     IDLE = 'idle',
     GENERATING_PDF = 'generating_pdf',
+    UPLOADING = 'uploading',
+    SENDING_EMAIL = 'sending_email',
     SUCCESS = 'success',
     ERROR = 'error'
 }
@@ -29,6 +37,12 @@ export default function CertificateGeneratorPage() {
   const [svgContent, setSvgContent] = useState<string>('');
   const [fileName, setFileName] = useState<string>('');
   const [recipientName, setRecipientName] = useState<string>('');
+  
+  // Email Fields
+  const [recipientEmail, setRecipientEmail] = useState<string>('');
+  const [emailSubject, setEmailSubject] = useState<string>('Your Certificate of Completion');
+  const [emailBody, setEmailBody] = useState<string>('Dear {{Name}},\n\nCongratulations on completing your training! \n\nPlease download your certificate using the link below.\n\nBest regards,\nSummit Psychology Services');
+
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
   
   // Dimensions of the original SVG, needed for PDF
@@ -42,23 +56,26 @@ export default function CertificateGeneratorPage() {
 
   const handleDimensionsReady = useCallback((width: number, height: number) => {
     setSvgDimensions(prev => {
-      // Prevent state update if dimensions haven't changed
       if (prev.width === width && prev.height === height) return prev;
       return { width, height };
     });
   }, []);
 
-  const handleProcess = async () => {
+  const generateCertificateBlob = async () => {
+     // 1. Prepare SVG string with replaced name
+     const finalSvgContent = svgContent.replace(/{{Name}}/g, recipientName || 'Recipient Name');
+
+     // 2. Generate PDF Blob
+     return await generatePDF(finalSvgContent, svgDimensions.width, svgDimensions.height);
+  }
+
+  const handleDownload = async () => {
     if (!svgContent) return;
 
     try {
       setStatus(AppStatus.GENERATING_PDF);
-
-      // 1. Prepare SVG string with replaced name
-      const finalSvgContent = svgContent.replace(/{{Name}}/g, recipientName || 'Recipient Name');
-
-      // 2. Generate PDF Blob
-      const pdfBlob = await generatePDF(finalSvgContent, svgDimensions.width, svgDimensions.height);
+      
+      const pdfBlob = await generateCertificateBlob();
 
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
@@ -76,7 +93,7 @@ export default function CertificateGeneratorPage() {
       });
 
     } catch (error) {
-      console.error("Processing Error:", error);
+      console.error("Download Error:", error);
       setStatus(AppStatus.ERROR);
       toast({
         title: "Error",
@@ -86,9 +103,82 @@ export default function CertificateGeneratorPage() {
     }
   };
 
-  const isWorking = status === AppStatus.GENERATING_PDF;
+  const handleSendEmail = async () => {
+    if (!svgContent || !recipientEmail) {
+        toast({
+            title: "Missing Information",
+            description: "Please provide a recipient email and template.",
+            variant: "destructive"
+        });
+        return;
+    }
 
-  // Use the correct capitalized roles from the UserProvider definition
+    try {
+        setStatus(AppStatus.GENERATING_PDF);
+        const pdfBlob = await generateCertificateBlob();
+
+        setStatus(AppStatus.UPLOADING);
+        // Create a unique filename
+        const safeName = recipientName.replace(/[^a-zA-Z0-9]/g, '_');
+        const timestamp = Date.now();
+        // Updated path to match new storage rules
+        const filePath = `generated-certificates/${safeName}_${timestamp}.pdf`;
+        const storageRef = ref(storage, filePath);
+
+        // Upload
+        await uploadBytes(storageRef, pdfBlob);
+        const downloadUrl = await getDownloadURL(storageRef);
+
+        setStatus(AppStatus.SENDING_EMAIL);
+
+        // Construct HTML Body with Link
+        const personalizedBody = emailBody.replace(/{{Name}}/g, recipientName || 'Recipient');
+        const htmlContent = `
+            <div style="font-family: sans-serif; color: #333;">
+                <p>${personalizedBody.replace(/\n/g, '<br>')}</p>
+                <div style="margin-top: 20px;">
+                    <a href="${downloadUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                        Download Certificate
+                    </a>
+                </div>
+                <p style="margin-top: 20px; font-size: 12px; color: #666;">
+                    If the button doesn't work, copy and paste this link into your browser:<br>
+                    <a href="${downloadUrl}">${downloadUrl}</a>
+                </p>
+            </div>
+        `;
+
+        const success = await sendEmail({
+            to: recipientEmail,
+            subject: emailSubject,
+            html: htmlContent,
+        });
+
+        if (success) {
+            toast({
+                title: "Email Sent",
+                description: `Certificate sent to ${recipientEmail}`,
+            });
+            setStatus(AppStatus.SUCCESS);
+            setTimeout(() => setStatus(AppStatus.IDLE), 2000);
+        } else {
+            throw new Error("Failed to queue email");
+        }
+
+    } catch (error) {
+        console.error("Email Error:", error);
+        setStatus(AppStatus.ERROR);
+        toast({
+            title: "Error",
+            description: "Failed to send email. Check console for details.",
+            variant: "destructive",
+        });
+    }
+  };
+
+  const isWorking = status !== AppStatus.IDLE && status !== AppStatus.SUCCESS && status !== AppStatus.ERROR;
+  
+  // Use the correct capitalized roles
   const allowedRoles: UserRole[] = ['Admin', 'Trainer', 'LineManager'];
 
   return (
@@ -98,7 +188,7 @@ export default function CertificateGeneratorPage() {
             <div>
                 <h2 className="text-3xl font-bold tracking-tight">Certificate Generator</h2>
                 <p className="text-muted-foreground">
-                    Upload an SVG template and generate PDF certificates.
+                    Upload an SVG template, generate PDF certificates, and email them directly.
                 </p>
             </div>
         </div>
@@ -145,7 +235,7 @@ export default function CertificateGeneratorPage() {
                  </div>
                  <div className="text-sm text-blue-800">
                    <p className="font-semibold mb-1">Tip:</p>
-                   <p>Upload an SVG file that contains the text <code>{`{{Name}}`}</code>. This placeholder will be replaced automatically with the recipient's name below.</p>
+                   <p>Upload an SVG file that contains the text <code>{`{{Name}}`}</code>. This placeholder will be replaced automatically with the recipient's name.</p>
                  </div>
                </div>
             )}
@@ -158,7 +248,7 @@ export default function CertificateGeneratorPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Recipient Details</CardTitle>
-                    <CardDescription>Enter the details to appear on the certificate.</CardDescription>
+                    <CardDescription>Enter the details for the certificate.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
@@ -171,27 +261,87 @@ export default function CertificateGeneratorPage() {
                             placeholder="e.g. Jane Doe"
                         />
                     </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="recipientEmail">Email Address</Label>
+                        <Input 
+                            id="recipientEmail"
+                            type="email" 
+                            value={recipientEmail}
+                            onChange={(e) => setRecipientEmail(e.target.value)}
+                            placeholder="e.g. jane@example.com"
+                        />
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* 2. Email Composer */}
+            <Card className="flex-1 flex flex-col">
+                <CardHeader>
+                    <CardTitle>Email Composition</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 flex-1 flex flex-col">
+                     <div className="space-y-2">
+                        <Label htmlFor="emailSubject">Subject</Label>
+                        <Input 
+                            id="emailSubject"
+                            value={emailSubject}
+                            onChange={(e) => setEmailSubject(e.target.value)}
+                            placeholder="Email Subject"
+                        />
+                    </div>
+                    <div className="space-y-2 flex-1">
+                        <Label htmlFor="emailBody">Message</Label>
+                        <Textarea 
+                            id="emailBody"
+                            value={emailBody}
+                            onChange={(e) => setEmailBody(e.target.value)}
+                            className="min-h-[150px] resize-none"
+                            placeholder="Enter your email message here..."
+                        />
+                         <p className="text-xs text-muted-foreground text-right">
+                             <code>{`{{Name}}`}</code> will be replaced with the recipient's name.
+                         </p>
+                    </div>
                 </CardContent>
             </Card>
 
             {/* Actions */}
-            <Button
-                onClick={handleProcess}
-                disabled={!svgContent || !recipientName || isWorking}
-                className="w-full py-6 text-lg"
-            >
-                {status === AppStatus.GENERATING_PDF ? (
-                   <>
-                       <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                       Generating...
-                   </>
-                ) : (
-                   <>
-                       <Download className="w-5 h-5 mr-2" />
-                       Download PDF
-                   </>
-                )}
-            </Button>
+            <div className="grid grid-cols-2 gap-4">
+                <Button
+                    onClick={handleDownload}
+                    variant="outline"
+                    disabled={!svgContent || !recipientName || isWorking}
+                    className="py-6"
+                >
+                    {status === AppStatus.GENERATING_PDF ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                    <>
+                        <Download className="w-5 h-5 mr-2" />
+                        Download
+                    </>
+                    )}
+                </Button>
+                
+                <Button
+                    onClick={handleSendEmail}
+                    disabled={!svgContent || !recipientName || !recipientEmail || isWorking}
+                    className="py-6"
+                >
+                    {status === AppStatus.GENERATING_PDF || status === AppStatus.UPLOADING || status === AppStatus.SENDING_EMAIL ? (
+                        <>
+                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                        {status === AppStatus.GENERATING_PDF ? 'Generating...' : 
+                         status === AppStatus.UPLOADING ? 'Uploading...' : 'Sending...'}
+                        </>
+                    ) : (
+                        <>
+                        <Send className="w-5 h-5 mr-2" />
+                        Send Email
+                        </>
+                    )}
+                </Button>
+            </div>
           </div>
         </div>
       </div>

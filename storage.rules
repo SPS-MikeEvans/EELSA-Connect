@@ -23,16 +23,27 @@ service firebase.storage {
        return isSignedIn() && (getUserRole(request.auth.uid) == 'Trainer' || isAdmin());
     }
 
+    function isAuthorizedGenerator() {
+       let role = getUserRole(request.auth.uid);
+       return isSignedIn() && (role == 'Admin' || role == 'Trainer' || role == 'LineManager');
+    }
+
     // Profile Pictures: Users can read any, but only write their own.
     match /profile_pictures/{userId}/{allPaths=**} {
       allow read: if isSignedIn();
       allow write: if isOwner(userId);
     }
     
-    // Certificates: Only the user can upload. Admins and the user can read.
+    // User-uploaded Certificates (e.g. self-upload)
     match /certificates/{userId}/{fileName} {
       allow read: if isOwner(userId) || isAdmin();
-      allow write: if isOwner(userId); // Allow initial upload
+      allow write: if isOwner(userId);
+    }
+
+    // Admin/Trainer generated certificates
+    match /generated-certificates/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isAuthorizedGenerator();
     }
 
     // Live Resources: Trainers/Admins can write, anyone signed in can read.
@@ -48,5 +59,3 @@ service firebase.storage {
     }
   }
 }
-
-    

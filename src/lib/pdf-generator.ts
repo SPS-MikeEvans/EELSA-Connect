@@ -4,21 +4,18 @@ import { svg2pdf } from 'svg2pdf.js';
 /**
  * Converts an SVG string to a PDF blob keeping vector data.
  * Uses svg2pdf.js to translate SVG nodes to PDF commands.
+ * Enforces A4 Landscape orientation.
  */
-export const generatePDF = async (svgString: string, width: number, height: number): Promise<Blob> => {
+export const generatePDF = async (svgString: string, originalWidth: number, originalHeight: number): Promise<Blob> => {
   // Create a temporary container
   const container = document.createElement('div');
   container.style.position = 'fixed';
   container.style.top = '-10000px';
   container.style.left = '-10000px';
   container.style.visibility = 'hidden';
-  // Important: z-index ensures it doesn't interfere with UI interactions even if hidden
   container.style.zIndex = '-1000'; 
   
-  // Clean the SVG string to remove potential scripts or harmful attributes
-  // For this app, we trust the user input but good practice generally.
   container.innerHTML = svgString;
-  
   document.body.appendChild(container);
 
   try {
@@ -27,29 +24,31 @@ export const generatePDF = async (svgString: string, width: number, height: numb
       throw new Error('Could not parse SVG element');
     }
 
-    // Set dimensions to ensure svg2pdf calculates correctly
-    svgElement.setAttribute('width', width.toString());
-    svgElement.setAttribute('height', height.toString());
+    // A4 Landscape dimensions in points (pt)
+    // 297mm x 210mm
+    const A4_WIDTH = 841.89;
+    const A4_HEIGHT = 595.28;
+
+    // Set SVG attributes to match A4 ratio/size or allow svg2pdf to scale it
+    // We want the SVG to scale to fit the A4 page
+    svgElement.setAttribute('width', A4_WIDTH.toString());
+    svgElement.setAttribute('height', A4_HEIGHT.toString());
     
-    // Ensure preserveAspectRatio is set to a reasonable default if missing, 
-    // though usually better to respect the file's setting.
-
-    const orientation = width > height ? 'l' : 'p';
-
+    // Create PDF with A4 Landscape configuration
     const pdf = new jsPDF({
-      orientation,
-      unit: 'px',
-      format: [width, height],
-      hotfixes: ["px_scaling"] // Helps with sizing consistency in newer jsPDF
+      orientation: 'landscape',
+      unit: 'pt',
+      format: 'a4',
+      hotfixes: ["px_scaling"]
     });
 
     // Generate vector PDF
-    // We await this process. svg2pdf handles image loading internally.
+    // We scale the SVG to fill the A4 page
     await svg2pdf(svgElement, pdf, {
       x: 0,
       y: 0,
-      width: width,
-      height: height,
+      width: A4_WIDTH,
+      height: A4_HEIGHT,
     });
 
     return pdf.output('blob');
