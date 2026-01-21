@@ -33,6 +33,12 @@ export default function CertificatesPage() {
   const canGenerateCertificates = userRole === 'Admin' || userRole === 'Trainer' || userRole === 'LineManager';
 
   useEffect(() => {
+    // Only fetch certificates if the user is NOT staff
+    if (canGenerateCertificates) {
+        setIsLoading(false);
+        return;
+    }
+
     setIsLoading(true);
     const authUnsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -58,7 +64,7 @@ export default function CertificatesPage() {
     });
 
     return () => authUnsubscribe();
-  }, []);
+  }, [canGenerateCertificates]);
 
   return (
     <div className="space-y-6">
@@ -82,56 +88,58 @@ export default function CertificatesPage() {
         </Card>
       )}
 
-      {/* My Certificates Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-headline">My Certificates</CardTitle>
-          <CardDescription>
-            Here are the certificates you have earned. Download them for your records.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[60%]">Course Name</TableHead>
-                <TableHead>Completion Date</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-5 w-3/4" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-9 w-28" /></TableCell>
-                  </TableRow>
-                ))
-              ) : certificates.length === 0 ? (
-                  <TableRow>
-                      <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">You have not earned any certificates yet.</TableCell>
-                  </TableRow>
-              ) : (
-                certificates.map((cert) => (
-                  <TableRow key={cert.id}>
-                    <TableCell className="font-medium">{cert.course}</TableCell>
-                    <TableCell>{new Date(cert.date.seconds * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</TableCell>
-                    <TableCell className="text-right">
-                      <Button asChild variant="outline" size="sm">
-                        <a href={cert.downloadUrl} target="_blank" rel="noopener noreferrer">
-                          <Download className="mr-2 h-4 w-4" />
-                          Download
-                        </a>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {/* My Certificates Section - Only for Trainees/ELSAs */}
+      {!canGenerateCertificates && (
+        <Card>
+            <CardHeader>
+            <CardTitle className="font-headline">My Certificates</CardTitle>
+            <CardDescription>
+                Here are the certificates you have earned. Download them for your records.
+            </CardDescription>
+            </CardHeader>
+            <CardContent>
+            <Table>
+                <TableHeader>
+                <TableRow>
+                    <TableHead className="w-[60%]">Course Name</TableHead>
+                    <TableHead>Completion Date</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+                </TableHeader>
+                <TableBody>
+                {isLoading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                    <TableRow key={i}>
+                        <TableCell><Skeleton className="h-5 w-3/4" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-9 w-28" /></TableCell>
+                    </TableRow>
+                    ))
+                ) : certificates.length === 0 ? (
+                    <TableRow>
+                        <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">You have not earned any certificates yet.</TableCell>
+                    </TableRow>
+                ) : (
+                    certificates.map((cert) => (
+                    <TableRow key={cert.id}>
+                        <TableCell className="font-medium">{cert.course}</TableCell>
+                        <TableCell>{new Date(cert.date.seconds * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</TableCell>
+                        <TableCell className="text-right">
+                        <Button asChild variant="outline" size="sm">
+                            <a href={cert.downloadUrl} target="_blank" rel="noopener noreferrer">
+                            <Download className="mr-2 h-4 w-4" />
+                            Download
+                            </a>
+                        </Button>
+                        </TableCell>
+                    </TableRow>
+                    ))
+                )}
+                </TableBody>
+            </Table>
+            </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
