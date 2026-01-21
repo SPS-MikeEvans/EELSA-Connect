@@ -9,7 +9,7 @@ import { onAuthStateChanged } from "firebase/auth";
 
 import { useUser } from "@/providers/user-provider";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Presentation, Video, Download, Folder, MoreVertical, Trash2, Edit, LayoutGrid, List, FolderPlus, Upload } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -24,6 +24,8 @@ import { cn } from "@/lib/utils";
 import { SubmitResourceDialog } from "@/components/resources/submit-resource-dialog";
 import { UploadResourceDialog } from "@/components/resources/upload-resource-dialog";
 import { CreateDirectoryDialog } from "@/components/resources/create-directory-dialog";
+import { ResourceSearch } from "@/components/resources/resource-search";
+import { canAccessResource } from "@/lib/resource-access";
 
 
 interface Resource {
@@ -35,6 +37,9 @@ interface Resource {
   downloadUrl?: string;
   itemType: 'file' | 'directory';
   purpose?: string;
+  visibleTo?: string[];
+  directoryId?: string | null;
+  tags?: string[];
 }
 
 const getIconForType = (type: string) => {
@@ -48,8 +53,9 @@ const getIconForType = (type: string) => {
 }
 
 export default function ResourcesPage() {
-  const { user, userRole, isLoading: isUserLoading } = useUser();
-  const [items, setItems] = useState<Resource[]>([]);
+  const { user, userRole, userDetails, isLoading: isUserLoading } = useUser();
+  const [rootItems, setRootItems] = useState<Resource[]>([]);
+  const [allItems, setAllItems] = useState<Resource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const { toast } = useToast();
@@ -61,6 +67,7 @@ export default function ResourcesPage() {
       if (user) {
         setIsLoading(true);
         
+        // 1. Fetch Directories
         const directoriesQuery = query(collection(db, "directories"));
         const unsubscribeDirectories = onSnapshot(directoriesQuery, (querySnapshot) => {
           const directoriesData = querySnapshot.docs.map(doc => {
@@ -72,23 +79,19 @@ export default function ResourcesPage() {
                 type: 'directory',
                 icon: Folder,
                 itemType: 'directory' as const,
+                directoryId: null, // Directories are usually root or we need parentId
             };
           });
-          
-          setItems(currentItems => {
-            const resources = currentItems.filter(item => item.itemType === 'file'); 
-            return [...resources, ...directoriesData].sort((a, b) => a.title.localeCompare(b.title));
-          });
-        }, (error) => {
-            console.error("Error fetching directories:", error);
+          // Merge directories into state (simplified: assuming flat directories for now or root only)
+          // For search, we want them all. For view, we filter.
+          updateItems(directoriesData, 'directory');
         });
 
+        // 2. Fetch Resources
         const resourcesQuery = query(collection(db, "resources"));
         const unsubscribeResources = onSnapshot(resourcesQuery, (querySnapshot) => {
             const resourcesData = querySnapshot.docs.map(doc => {
                 const data = doc.data();
-                if (data.directoryId) return null;
-
                 return {
                     id: doc.id,
                     title: data.title,
@@ -98,16 +101,13 @@ export default function ResourcesPage() {
                     downloadUrl: data.downloadUrl,
                     itemType: 'file' as const,
                     purpose: data.purpose,
+                    visibleTo: data.visibleTo,
+                    directoryId: data.directoryId,
+                    tags: data.tags
                 };
-            }).filter(Boolean) as Resource[];
-
-            setItems(currentItems => {
-                const dirs = currentItems.filter(item => item.itemType === 'directory');
-                return [...dirs, ...resourcesData].sort((a, b) => a.title.localeCompare(b.title));
-            });
-            setIsLoading(false);
-        }, (error) => {
-            console.error("Error fetching resources:", error);
+            }) as Resource[];
+            
+            updateItems(resourcesData, 'file');
             setIsLoading(false);
         });
 
@@ -117,12 +117,35 @@ export default function ResourcesPage() {
         };
       } else {
         setIsLoading(false);
-        setItems([]);
+        setRootItems([]);
+        setAllItems([]);
       }
     });
 
     return () => authUnsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Helper to merge updates
+  const updateItems = (newData: Resource[], type: 'file' | 'directory') => {
+      setAllItems(prev => {
+          const others = prev.filter(i => i.itemType !== type);
+          const combined = [...others, ...newData];
+          return combined.sort((a, b) => a.title.localeCompare(b.title));
+      });
+  };
+
+  // Derive root items for display
+  useEffect(() => {
+      if (allItems.length > 0) {
+          const root = allItems.filter(item => !item.directoryId);
+          setRootItems(root);
+      }
+  }, [allItems]);
+
+  // Filter for Search (Permissions)
+  const accessibleSearchItems = allItems.filter(item => canAccessResource(item, userDetails, userRole || undefined));
+
 
   const handleDeleteDirectory = async (id: string, name: string) => {
     if (!user) return;
@@ -234,37 +257,40 @@ export default function ResourcesPage() {
 
   return (
     <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-            <h1 className="text-3xl font-headline font-bold tracking-tight">Resource Center</h1>
-            <p className="text-muted-foreground">
-                Browse and download training materials, guides, and other resources.
-            </p>
+                <h1 className="text-3xl font-headline font-bold tracking-tight">Resource Center</h1>
+                <p className="text-muted-foreground">
+                    Browse and download training materials, guides, and other resources.
+                </p>
             </div>
-            <div className="flex items-center gap-2">
-                {canManage ? (
-                  <>
-                     <CreateDirectoryDialog>
-                        <Button>
-                            <FolderPlus className="mr-2 size-4" /> New Directory
-                        </Button>
-                     </CreateDirectoryDialog>
-                     <UploadResourceDialog directoryId={null}>
-                        <Button>
-                            <Upload className="mr-2 h-4 w-4" /> Upload Resource
-                        </Button>
-                     </UploadResourceDialog>
-                  </>
-                ) : (
-                   <SubmitResourceDialog />
-                )}
-                <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')}>
-                    <LayoutGrid className="size-5" />
-                </Button>
-                <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('list')}>
-                    <List className="size-5" />
-                </Button>
-            </div>
+            
+            <ResourceSearch items={accessibleSearchItems} />
+        </div>
+
+        <div className="flex justify-end items-center gap-2">
+            {canManage ? (
+                <>
+                    <CreateDirectoryDialog>
+                    <Button>
+                        <FolderPlus className="mr-2 size-4" /> New Directory
+                    </Button>
+                    </CreateDirectoryDialog>
+                    <UploadResourceDialog directoryId={null}>
+                    <Button>
+                        <Upload className="mr-2 h-4 w-4" /> Upload Resource
+                    </Button>
+                    </UploadResourceDialog>
+                </>
+            ) : (
+                <SubmitResourceDialog />
+            )}
+            <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')}>
+                <LayoutGrid className="size-5" />
+            </Button>
+            <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('list')}>
+                <List className="size-5" />
+            </Button>
         </div>
 
         {viewMode === 'grid' ? (
@@ -287,8 +313,8 @@ export default function ResourcesPage() {
                                 </CardContent>
                             </Card>
                         ))
-                    ) : items.length > 0 ? (
-                        items.map((item) => (
+                    ) : rootItems.length > 0 ? (
+                        rootItems.map((item) => (
                         <Card key={item.id} className="h-full flex flex-col relative group transition-transform duration-200 hover:scale-[1.01] hover:shadow-lg">
                             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                 <ItemActions item={item} />
@@ -351,9 +377,9 @@ export default function ResourcesPage() {
                                     <TableCell className="text-right"><Skeleton className="h-8 w-8 rounded-md" /></TableCell>
                                 </TableRow>
                             ))
-                        ) : items.length > 0 ? (
+                        ) : rootItems.length > 0 ? (
                         <TooltipProvider>
-                            {items.map((item) => (
+                            {rootItems.map((item) => (
                                 <TableRow key={item.id} className="group">
                                     <TableCell>
                                         <item.icon className="size-6 text-primary" />
