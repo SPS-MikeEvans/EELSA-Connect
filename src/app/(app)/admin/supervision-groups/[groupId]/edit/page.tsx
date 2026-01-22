@@ -63,6 +63,8 @@ export default function EditSupervisionGroupPage() {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
+          const dates = data.dates ? data.dates.map((d: any) => d.toDate()) : [];
+          
           form.reset({
             name: data.name,
             supervisorName: data.supervisorName,
@@ -72,7 +74,7 @@ export default function EditSupervisionGroupPage() {
             venueAddress: data.venueAddress,
             startTime: data.startTime,
             maxCapacity: data.maxCapacity,
-            dates: data.dates ? data.dates.map((d: any) => d.toDate()) : [],
+            dates: dates,
           });
         }
       } catch (error) {
@@ -93,9 +95,13 @@ export default function EditSupervisionGroupPage() {
       
       const region = values.region.trim().replace(/\b\w/g, l => l.toUpperCase());
 
+      // Ensure dates are sorted chronologically
+      const sortedDates = [...values.dates].sort((a, b) => a.getTime() - b.getTime());
+
       await updateDoc(groupRef, {
         ...values,
         region,
+        dates: sortedDates,
         updatedAt: serverTimestamp(),
       });
 
@@ -103,7 +109,7 @@ export default function EditSupervisionGroupPage() {
         title: "Group Updated",
         description: "The supervision group has been successfully updated.",
       });
-      router.push("/admin/supervision-groups");
+      router.push("/supervision-groups");
     } catch (error) {
       console.error(error);
       toast({
@@ -119,12 +125,9 @@ export default function EditSupervisionGroupPage() {
   async function handleDelete() {
     if (!groupId || typeof groupId !== 'string') return;
     try {
-        // Here we would ideally call a server action to safely delete and cleanup relations
-        // For prototype, direct DB delete is okay but risky if users are joined.
-        // Let's just set status to archived for safety in this demo context.
         await updateDoc(doc(db, "supervisionGroups", groupId), { status: 'archived' });
         toast({ title: "Group Archived", description: "The group has been archived." });
-        router.push("/admin/supervision-groups");
+        router.push("/supervision-groups");
     } catch (e) {
         toast({ title: "Error", description: "Failed to delete group.", variant: "destructive" });
     }
@@ -281,29 +284,35 @@ export default function EditSupervisionGroupPage() {
             render={({ field }) => (
                 <FormItem>
                 <FormLabel>Session Dates (Select 6)</FormLabel>
-                <Popover>
-                    <PopoverTrigger asChild>
-                    <FormControl>
-                        <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                        {field.value?.length > 0 ? `${field.value.length} dates selected` : <span>Pick dates</span>}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                    </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                        mode="multiple"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        disabled={(date) => date < new Date() }
-                        initialFocus
-                    />
-                    </PopoverContent>
-                </Popover>
-                <div className="flex flex-wrap gap-2 mt-2">
-                    {field.value?.sort((a,b) => a.getTime() - b.getTime()).map((date, index) => (
-                        <div key={index} className="bg-secondary text-secondary-foreground px-2 py-1 rounded-md text-xs">
-                            {format(date, "PPP")}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[0, 1, 2, 3, 4, 5].map((index) => (
+                        <div key={index} className="space-y-1">
+                            <span className="text-xs font-medium text-muted-foreground">Session {index + 1}</span>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                <FormControl>
+                                    <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value?.[index] && "text-muted-foreground")}>
+                                    {field.value?.[index] ? format(field.value[index], "PPP") : <span>Pick date</span>}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                    mode="single"
+                                    selected={field.value?.[index]}
+                                    onSelect={(date) => {
+                                        const newDates = [...(field.value || [])];
+                                        if (date) {
+                                            newDates[index] = date;
+                                            field.onChange(newDates);
+                                        }
+                                    }}
+                                    disabled={(date) => date < new Date("1900-01-01") }
+                                    initialFocus
+                                />
+                                </PopoverContent>
+                            </Popover>
                         </div>
                     ))}
                 </div>

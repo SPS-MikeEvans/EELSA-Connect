@@ -22,6 +22,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { BatchAddGroupsDialog } from "@/components/admin/batch-add-groups-dialog";
 
 export default function SupervisionGroupsPage() {
   const { user, userRole: role, isLoading: userLoading, userDetails } = useUser();
@@ -137,11 +138,14 @@ export default function SupervisionGroupsPage() {
                 </Select>
             )}
             {canManage && (
-            <Button asChild>
-                <Link href="/admin/supervision-groups/create">
-                    <Plus className="mr-2 h-4 w-4" /> Create Group
-                </Link>
-            </Button>
+                <>
+                <BatchAddGroupsDialog />
+                <Button asChild>
+                    <Link href="/admin/supervision-groups/create">
+                        <Plus className="mr-2 h-4 w-4" /> Create Group
+                    </Link>
+                </Button>
+                </>
             )}
         </div>
       </div>
