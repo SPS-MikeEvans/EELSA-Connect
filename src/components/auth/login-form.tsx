@@ -75,7 +75,7 @@ export function LoginForm() {
       <CardHeader className="items-center text-center">
         <Logo className="w-[90%] mb-2" />
         <CardTitle className="text-2xl font-headline text-primary">Welcome Back</CardTitle>
-        <CardDescription>Enter your credentials to access your account</CardDescription>
+        <CardDescription>Enter your details to access your account</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
