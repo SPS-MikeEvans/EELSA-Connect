@@ -1,15 +1,16 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/providers/user-provider";
 import { useParams } from "next/navigation";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +26,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2, Trash2 } from "lucide-react";
+import { CalendarIcon, Loader2, Trash2, Upload, File as FileIcon, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supervisionFormSchema } from "@/schemas/supervision-schema";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -39,6 +40,8 @@ export default function EditSupervisionGroupPage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isUploadingCert, setIsUploadingCert] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof supervisionFormSchema>>({
     resolver: zodResolver(supervisionFormSchema),
@@ -52,8 +55,12 @@ export default function EditSupervisionGroupPage() {
       startTime: "",
       maxCapacity: 8,
       dates: [],
+      certificateTemplateUrl: "",
+      certificateTemplateName: "",
     },
   });
+
+  const certificateTemplateName = form.watch("certificateTemplateName");
 
   useEffect(() => {
     async function fetchGroup() {
@@ -75,6 +82,8 @@ export default function EditSupervisionGroupPage() {
             startTime: data.startTime,
             maxCapacity: data.maxCapacity,
             dates: dates,
+            certificateTemplateUrl: data.certificateTemplateUrl || "",
+            certificateTemplateName: data.certificateTemplateName || "",
           });
         }
       } catch (error) {
@@ -86,6 +95,38 @@ export default function EditSupervisionGroupPage() {
     }
     fetchGroup();
   }, [groupId, form, toast]);
+
+  const handleCertificateUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.type !== "image/svg+xml") {
+        toast({ title: "Invalid File", description: "Please upload an SVG file.", variant: "destructive" });
+        return;
+      }
+
+      setIsUploadingCert(true);
+      try {
+        // Changed path to avoid collision
+        const storageRef = ref(storage, `supervision-certificates/${groupId}/${Date.now()}_${file.name}`);
+        await uploadBytes(storageRef, file);
+        const downloadUrl = await getDownloadURL(storageRef);
+
+        form.setValue("certificateTemplateUrl", downloadUrl);
+        form.setValue("certificateTemplateName", file.name);
+        toast({ title: "Success", description: "Certificate template uploaded." });
+      } catch (error) {
+        console.error("Upload error", error);
+        toast({ title: "Error", description: "Failed to upload certificate.", variant: "destructive" });
+      } finally {
+        setIsUploadingCert(false);
+      }
+    }
+  };
+
+  const removeCertificate = () => {
+    form.setValue("certificateTemplateUrl", "");
+    form.setValue("certificateTemplateName", "");
+  };
 
   async function onSubmit(values: z.infer<typeof supervisionFormSchema>) {
     if (!groupId || typeof groupId !== 'string') return;
@@ -321,9 +362,46 @@ export default function EditSupervisionGroupPage() {
             )}
             />
 
+             <div className="space-y-4 border rounded-md p-4 bg-muted/20">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h3 className="font-semibold">Certificate Template</h3>
+                        <p className="text-sm text-muted-foreground">Upload an SVG template for this group's certificates.</p>
+                    </div>
+                     {certificateTemplateName && (
+                        <div className="flex items-center gap-2 text-sm bg-background border px-3 py-1 rounded-md">
+                            <FileIcon className="h-4 w-4 text-blue-500" />
+                            <span className="truncate max-w-[150px]">{certificateTemplateName}</span>
+                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={removeCertificate}>
+                                <X className="h-3 w-3" />
+                            </Button>
+                        </div>
+                    )}
+                </div>
+                
+                <div>
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        accept="image/svg+xml"
+                        onChange={handleCertificateUpload}
+                    />
+                    <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploadingCert}
+                    >
+                        {isUploadingCert ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                        {certificateTemplateName ? "Change Template" : "Upload SVG Template"}
+                    </Button>
+                </div>
+            </div>
+
           <div className="flex justify-end space-x-4">
             <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting || isUploadingCert}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Changes
             </Button>

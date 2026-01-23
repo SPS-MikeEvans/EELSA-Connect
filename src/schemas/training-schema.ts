@@ -15,6 +15,8 @@ export const trainingFormSchema = z.object({
   specialistDates: z.array(z.date()),
   supervisionDates: z.array(z.date()),
   datesTbc: z.boolean().default(false),
+  certificateTemplateUrl: z.string().optional(),
+  certificateTemplateName: z.string().optional(),
 }).superRefine((data, ctx) => {
   if (!data.datesTbc) {
     if (data.coreDates.length !== 6) {

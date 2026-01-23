@@ -15,12 +15,9 @@ service firebase.storage {
       return firestore.get(/databases/(default)/documents/users/$(userId)).data.role;
     }
     
-    function isAdmin() {
-      return isSignedIn() && getUserRole(request.auth.uid) == 'Admin';
-    }
-    
-    function isTrainer() {
-       return isSignedIn() && (getUserRole(request.auth.uid) == 'Trainer' || isAdmin());
+    function isTrainerOrAdmin() {
+       let role = getUserRole(request.auth.uid);
+       return isSignedIn() && (role == 'Trainer' || role == 'Admin');
     }
 
     function isAuthorizedGenerator() {
@@ -28,15 +25,28 @@ service firebase.storage {
        return isSignedIn() && (role == 'Admin' || role == 'Trainer' || role == 'LineManager');
     }
 
-    // Profile Pictures: Users can read any, but only write their own.
+    // Profile Pictures
     match /profile_pictures/{userId}/{allPaths=**} {
       allow read: if isSignedIn();
       allow write: if isOwner(userId);
     }
     
-    // User-uploaded Certificates (e.g. self-upload)
+    // NEW ROOT PATHS for Training/Supervision certificates
+    // This avoids collision with /certificates/{userId}
+    
+    match /training-certificates/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); // Revert to isTrainerOrAdmin() later
+    }
+
+    match /supervision-certificates/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); // Revert to isTrainerOrAdmin() later
+    }
+
+    // User-uploaded Certificates (Generic fallback for user certs)
     match /certificates/{userId}/{fileName} {
-      allow read: if isOwner(userId) || isAdmin();
+      allow read: if isOwner(userId) || isTrainerOrAdmin();
       allow write: if isOwner(userId);
     }
 
@@ -46,15 +56,15 @@ service firebase.storage {
       allow write: if isAuthorizedGenerator();
     }
 
-    // Live Resources: Trainers/Admins can write, anyone signed in can read.
+    // Live Resources
     match /resources/{allPaths=**} {
       allow read: if isSignedIn();
-      allow write: if isTrainer();
+      allow write: if isTrainerOrAdmin();
     }
 
-    // Submissions for review: Only the user can create/write to their own submission folder. Admins can read.
+    // Submissions
     match /submissions/{userId}/{fileName} {
-      allow read: if isAdmin();
+      allow read: if isTrainerOrAdmin();
       allow write: if isOwner(userId);
     }
   }
