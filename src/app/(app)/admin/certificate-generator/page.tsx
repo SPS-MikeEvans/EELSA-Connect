@@ -94,14 +94,16 @@ export default function CertificateGeneratorPage() {
           setLoadingGroups(true);
           try {
              const colName = sourceType === 'training' ? 'trainingCourses' : 'supervisionGroups';
-             // Fetch all active groups (could filter by archived status if needed)
-             const q = query(collection(db, colName), where("status", "!=", "archived")); 
-             const snapshot = await getDocs(q);
-             const groups: GroupData[] = snapshot.docs.map(d => ({
-                 id: d.id,
-                 name: d.data().name,
-                 certificateTemplateUrl: d.data().certificateTemplateUrl
-             }));
+             // Fetch all groups and filter out archived ones client-side
+             // (Firestore != queries don't return docs where the field is missing)
+             const snapshot = await getDocs(collection(db, colName));
+             const groups: GroupData[] = snapshot.docs
+                 .filter(d => d.data().status !== 'archived')
+                 .map(d => ({
+                     id: d.id,
+                     name: d.data().name,
+                     certificateTemplateUrl: d.data().certificateTemplateUrl
+                 }));
              setAvailableGroups(groups);
           } catch (e) {
               console.error("Error fetching groups", e);
