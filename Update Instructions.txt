@@ -1,5 +1,6 @@
 # Manual Firebase Configuration Instructions
 
+
 Follow these steps in your Firebase project to ensure the application's new features work correctly.
 
 ## Step 1: Update Firestore Security Rules
