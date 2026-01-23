@@ -10,7 +10,7 @@ import { useUser } from "@/providers/user-provider";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Presentation, Video, Download, Folder, ChevronRight, Home, MoreVertical, Trash2, Edit, List, LayoutGrid } from "lucide-react";
+import { FileText, Presentation, Video, Download, Folder, ChevronRight, Home, MoreVertical, Trash2, Edit, List, LayoutGrid, Upload, FileStack } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -21,6 +21,8 @@ import { EditResourceDialog } from "@/components/resources/edit-resource-dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { UploadResourceDialog } from "@/components/resources/upload-resource-dialog";
+import { BatchUploadDialog } from "@/components/resources/batch-upload-dialog";
 
 
 interface Resource {
@@ -224,6 +226,20 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
                 </p>
             </div>
              <div className="flex items-center gap-2">
+                {canManage && (
+                    <>
+                        <UploadResourceDialog directoryId={directoryId}>
+                            <Button>
+                                <Upload className="mr-2 h-4 w-4" /> Upload
+                            </Button>
+                        </UploadResourceDialog>
+                        <BatchUploadDialog directoryId={directoryId}>
+                            <Button variant="outline">
+                                <FileStack className="mr-2 h-4 w-4" /> Batch Upload
+                            </Button>
+                        </BatchUploadDialog>
+                    </>
+                )}
                 <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')}>
                     <LayoutGrid className="size-5" />
                 </Button>

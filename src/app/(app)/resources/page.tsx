@@ -10,7 +10,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { useUser } from "@/providers/user-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Presentation, Video, Download, Folder, MoreVertical, Trash2, Edit, LayoutGrid, List, FolderPlus, Upload } from "lucide-react";
+import { FileText, Presentation, Video, Download, Folder, MoreVertical, Trash2, Edit, LayoutGrid, List, FolderPlus, Upload, FileStack } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -26,6 +26,7 @@ import { UploadResourceDialog } from "@/components/resources/upload-resource-dia
 import { CreateDirectoryDialog } from "@/components/resources/create-directory-dialog";
 import { ResourceSearch } from "@/components/resources/resource-search";
 import { canAccessResource } from "@/lib/resource-access";
+import { BatchUploadDialog } from "@/components/resources/batch-upload-dialog";
 
 
 interface Resource {
@@ -82,8 +83,6 @@ export default function ResourcesPage() {
                 directoryId: null, // Directories are usually root or we need parentId
             };
           });
-          // Merge directories into state (simplified: assuming flat directories for now or root only)
-          // For search, we want them all. For view, we filter.
           updateItems(directoriesData, 'directory');
         });
 
@@ -278,9 +277,14 @@ export default function ResourcesPage() {
                     </CreateDirectoryDialog>
                     <UploadResourceDialog directoryId={null}>
                     <Button>
-                        <Upload className="mr-2 h-4 w-4" /> Upload Resource
+                        <Upload className="mr-2 h-4 w-4" /> Upload
                     </Button>
                     </UploadResourceDialog>
+                    <BatchUploadDialog directoryId={null}>
+                        <Button variant="outline">
+                            <FileStack className="mr-2 h-4 w-4" /> Batch Upload
+                        </Button>
+                    </BatchUploadDialog>
                 </>
             ) : (
                 <SubmitResourceDialog />

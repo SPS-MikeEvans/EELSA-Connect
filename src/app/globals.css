@@ -101,3 +101,20 @@
     pointer-events: none;
   }
 }
+
+/* Custom Fonts */
+@font-face {
+  font-family: 'Vladimir Script';
+  src: url('/fonts/VladimirScript.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'VladimirScript';
+  src: url('/fonts/VladimirScript.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
