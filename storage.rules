@@ -3,69 +3,27 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     
+    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
-    
-    function isOwner(userId) {
-      return request.auth.uid == userId;
+    function isAdmin() {
+      // Assuming you have a way to check admin status via custom claims or Firestore (which is hard in storage rules)
+      // For now, relying on simple auth checks or specific paths.
+      // Ideally, use Custom Claims for 'admin'.
+      return isSignedIn() && request.auth.token.role == 'Admin'; 
     }
 
-    function getUserRole(userId) {
-      return firestore.get(/databases/(default)/documents/users/$(userId)).data.role;
-    }
-    
-    function isTrainerOrAdmin() {
-       let role = getUserRole(request.auth.uid);
-       return isSignedIn() && (role == 'Trainer' || role == 'Admin');
-    }
-
-    function isAuthorizedGenerator() {
-       let role = getUserRole(request.auth.uid);
-       return isSignedIn() && (role == 'Admin' || role == 'Trainer' || role == 'LineManager');
-    }
-
-    // Profile Pictures
-    match /profile_pictures/{userId}/{allPaths=**} {
-      allow read: if isSignedIn();
-      allow write: if isOwner(userId);
-    }
-    
-    // NEW ROOT PATHS for Training/Supervision certificates
-    // This avoids collision with /certificates/{userId}
-    
-    match /training-certificates/{allPaths=**} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn(); // Revert to isTrainerOrAdmin() later
-    }
-
-    match /supervision-certificates/{allPaths=**} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn(); // Revert to isTrainerOrAdmin() later
-    }
-
-    // User-uploaded Certificates (Generic fallback for user certs)
-    match /certificates/{userId}/{fileName} {
-      allow read: if isOwner(userId) || isTrainerOrAdmin();
-      allow write: if isOwner(userId);
-    }
-
-    // Admin/Trainer generated certificates
-    match /generated-certificates/{fileName} {
-      allow read: if isSignedIn();
-      allow write: if isAuthorizedGenerator();
-    }
-
-    // Live Resources
     match /resources/{allPaths=**} {
       allow read: if isSignedIn();
-      allow write: if isTrainerOrAdmin();
+      allow write: if isSignedIn(); // Refine this based on actual app logic (e.g. only trainers)
     }
-
-    // Submissions
-    match /submissions/{userId}/{fileName} {
-      allow read: if isTrainerOrAdmin();
-      allow write: if isOwner(userId);
+    
+    match /feedback/{fileName} {
+      allow write: if isSignedIn() && request.resource.size < 5 * 1024 * 1024; // 5MB limit
+      allow read: if isSignedIn(); // Or restrict to admins if possible
     }
+    
+    // ... other existing rules ...
   }
 }

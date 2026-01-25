@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.syncSupervisionChatMembers = exports.syncTrainingChatMembers = exports.createSupervisionChat = exports.createTrainingChat = exports.onCourseCompletion = exports.onUserRoleChange = exports.onUserStatusUpdate = exports.onUserCreate = exports.onSupervisionJoin = exports.onTrainingJoin = exports.sendMailOnCreate = exports.sendWelcomeEmail = exports.stripeWebhook = exports.createStripeCheckout = exports.createStripeProduct = void 0;
+exports.onFeedbackCreate = exports.syncSupervisionChatMembers = exports.syncTrainingChatMembers = exports.createSupervisionChat = exports.createTrainingChat = exports.onCourseCompletion = exports.onUserRoleChange = exports.onUserStatusUpdate = exports.onUserCreate = exports.onSupervisionJoin = exports.onTrainingJoin = exports.sendMailOnCreate = exports.sendWelcomeEmail = exports.stripeWebhook = exports.createStripeCheckout = exports.createStripeProduct = void 0;
 require("dotenv/config");
 const functions = __importStar(require("firebase-functions/v1"));
 const params_1 = require("firebase-functions/params");
@@ -621,5 +621,39 @@ exports.syncSupervisionChatMembers = functions.firestore
         memberIds: newMembers
     });
     console.log(`Synced members for Supervision Chat ${chatId}`);
+});
+// ============================================================================
+// FEEDBACK FUNCTIONS
+// ============================================================================
+exports.onFeedbackCreate = functions
+    .runWith({ secrets: [secretsConfig] })
+    .firestore.document("feedback/{feedbackId}")
+    .onCreate(async (snap) => {
+    const feedback = snap.data();
+    try {
+        const { email: senderEmail } = getSmtpConfig();
+        const adminEmail = "accounts@summitpsychologyservices.co.uk"; // Or configurable
+        const mailOptions = {
+            from: `"Excellent ELSA Bot" <${senderEmail}>`,
+            to: adminEmail,
+            subject: `[${feedback.type}] New Feedback Submitted`,
+            html: `
+                    <h2>New ${feedback.type} Report</h2>
+                    <p><strong>User:</strong> ${feedback.userEmail} (${feedback.userId})</p>
+                    <p><strong>Page:</strong> ${feedback.pageUrl}</p>
+                    <p><strong>Description:</strong></p>
+                    <blockquote style="background: #f9f9f9; padding: 10px; border-left: 5px solid #ccc;">
+                        ${feedback.description}
+                    </blockquote>
+                    ${feedback.screenshotUrl ? `<p><a href="${feedback.screenshotUrl}">View Screenshot</a></p>` : ''}
+                    <p><a href="https://excellent-elsa-connect.web.app/admin/feedback">Manage Feedback</a></p>
+                `
+        };
+        await getTransporter().sendMail(mailOptions);
+        console.log(`Feedback notification sent for ${snap.id}`);
+    }
+    catch (error) {
+        console.error("Error sending feedback notification:", error);
+    }
 });
 //# sourceMappingURL=index.js.map

@@ -64,7 +64,21 @@ service cloud.firestore {
     // Feedbacks collection:
     // - Any signed-in user can create feedback.
     // - Trainers and Admins can read feedback (and run aggregation queries).
-    match /feedbacks/{feedbackId} {
+    // - Only Admins can update/delete (e.g. status)
+    match /feedback/{feedbackId} {
+        allow create: if isSignedIn();
+        allow read: if isAdmin();
+        allow update, delete: if isAdmin();
+    }
+    
+    // Global Settings (for feature toggles like bug reporting)
+    match /settings/global {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    match /feedbacks/{feedbackId} { // Legacy or typo from previous rules, keeping just in case or removing if empty.
+       // Consolidating to 'feedback' as per prompt requirements, but keeping this block if existing data relies on it.
         allow create: if isSignedIn();
         allow read: if isAdmin() || isTrainer();
         allow update, delete: if isAdmin();

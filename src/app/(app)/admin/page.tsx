@@ -25,12 +25,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MoreHorizontal, Users, Check, X, FileText, Download, UserCog } from "lucide-react";
+import { MoreHorizontal, Users, Check, X, FileText, Download, UserCog, Bug } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from "@/hooks/use-toast";
 import type { UserDetails } from '@/providers/user-provider';
 import { ManageRoleDialog } from '@/components/admin/manage-role-dialog';
+import FeedbackAdminPage from './feedback/page';
 
 interface ResourceSubmission {
     id: string;
@@ -154,14 +155,17 @@ export default function AdminPage() {
       <div className="flex items-center justify-between">
         <TabsList>
           <TabsTrigger value="approvals">
-             Pending Approvals
+             Approvals
              {totalPending > 0 && (
                  <Badge variant="destructive" className="ml-2 px-1 py-0 h-5 text-xs rounded-full">
                      {totalPending}
                  </Badge>
              )}
           </TabsTrigger>
-          <TabsTrigger value="users">All Users</TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="feedback" className="flex items-center gap-2">
+            <Bug className="h-4 w-4" /> Feedback
+          </TabsTrigger>
         </TabsList>
       </div>
 
@@ -256,6 +260,11 @@ export default function AdminPage() {
             </Table>
           </CardContent>
         </Card>
+      </TabsContent>
+      
+      {/* FEEDBACK TAB */}
+      <TabsContent value="feedback">
+        <FeedbackAdminPage />
       </TabsContent>
     </Tabs>
   );

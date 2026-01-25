@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { ReactNode } from "react";
@@ -7,6 +6,7 @@ import { Header } from "@/components/layout/header";
 import { MainNav } from "@/components/layout/main-nav";
 import { UserProvider } from "@/providers/user-provider";
 import { FirebaseErrorListener } from "@/components/layout/firebase-error-listener";
+import { FeedbackWidget } from "@/components/common/feedback-widget";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
@@ -23,6 +23,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                     {children}
                 </main>
             </div>
+            <FeedbackWidget />
           </div>
       </SidebarProvider>
     </UserProvider>
