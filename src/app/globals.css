@@ -92,7 +92,7 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    /* background-image: url('/SummitBG.jpg'); */
+    background-image: url('/SummitBG.png');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
