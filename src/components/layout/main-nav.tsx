@@ -136,9 +136,11 @@ export function MainNav() {
         <Separator className="my-2 bg-sidebar-border" />
          <SidebarMenu>
             <SidebarMenuItem>
-                <SidebarMenuButton tooltip="Support" className="font-headline">
-                    <LifeBuoy />
-                    <span>Support</span>
+                <SidebarMenuButton asChild tooltip="Support" className="font-headline">
+                    <Link href="/support">
+                        <LifeBuoy />
+                        <span>Support</span>
+                    </Link>
                 </SidebarMenuButton>
             </SidebarMenuItem>
              <SidebarMenuItem>
