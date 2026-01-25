@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "excellentelsa-connect"
-  }
+  },
+  "targets": {
+    "excellentelsa-connect": {
+      "hosting": {
+        "staging": [
+          "excellentelsa-connect"
+        ],
+        "prod": [
+          "excellentelsa-connect-prod"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
