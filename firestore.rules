@@ -95,8 +95,8 @@ service cloud.firestore {
     match /invites/{inviteId} {
         // Line managers can create invites via the app (handled by backend logic).
         allow create: if isSignedIn();
-        // Only the invited user (via a function) or an admin can read.
-        allow read: if isSignedIn();
+        // Anyone can read the invite to pre-fill the form, even if not signed in.
+        allow read: if true;
         // Only backend functions can update status to 'accepted'.
         allow update, delete: if isAdmin();
     }

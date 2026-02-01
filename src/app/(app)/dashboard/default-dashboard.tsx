@@ -150,8 +150,6 @@ export default function DefaultDashboard() {
     if (link) { return <Link href={link}>{content}</Link> }
     return content;
   }
-  
-  const isManager = userDetails?.role === 'LineManager' || userDetails?.additionalRoles?.includes('LineManager');
 
   return (
     <div className="flex min-h-screen w-full flex-col">
@@ -167,17 +165,7 @@ export default function DefaultDashboard() {
           </Alert>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {isManager && (
-                <StatCard
-                    title="My Team"
-                    value={userDetails?.linkedStaffIds?.length || 0}
-                    icon={Building}
-                    description="staff members managed"
-                    isLoading={isLoadingStats}
-                    link="/manager/dashboard"
-                />
-            )}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <StatCard
             title="New Resources"
             value={`+${newResourcesCount}`}

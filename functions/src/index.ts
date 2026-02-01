@@ -317,9 +317,31 @@ export const onUserCreate = functions
     .firestore.document("users/{userId}")
     .onCreate(async (snap) => {
         const newUser = snap.data();
-        const { email, fullName, role, approvalStatus } = newUser;
+        const { email, fullName, role, approvalStatus, inviteId, uid } = newUser;
 
         if (!email) return;
+
+        // --- Handle Invitation Link ---
+        if (inviteId) {
+            const inviteRef = db.collection('invites').doc(inviteId);
+            const inviteSnap = await inviteRef.get();
+            if (inviteSnap.exists) {
+                const inviteData = inviteSnap.data();
+                if (inviteData && inviteData.fromId) {
+                    const managerRef = db.collection('users').doc(inviteData.fromId);
+                    // Add new user's ID to the manager's staff list
+                    await managerRef.update({
+                        linkedStaffIds: admin.firestore.FieldValue.arrayUnion(uid)
+                    });
+                    // Mark invite as completed
+                    await inviteRef.update({
+                        status: 'accepted',
+                        acceptedBy: uid,
+                        acceptedAt: admin.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            }
+        }
 
         try {
             const { email: senderEmail } = getSmtpConfig();

@@ -8,6 +8,7 @@ import TraineeDashboard from "./trainee-dashboard";
 import TrainerDashboard from "./trainer-dashboard";
 import AdminDashboard from "./admin-dashboard";
 import DefaultDashboard from "./default-dashboard";
+import LineManagerDashboard from "./line-manager-dashboard";
 
 export default function DashboardRouterPage() {
   const { userRole, isLoading } = useUser();
@@ -29,8 +30,10 @@ export default function DashboardRouterPage() {
       return <TrainerDashboard />;
     case "Admin":
       return <AdminDashboard />;
+    case "LineManager":
+      return <LineManagerDashboard />;
     default:
-      // Includes 'User', 'LineManager', and null/undefined roles
+      // Includes 'User' and null/undefined roles
       return <DefaultDashboard />;
   }
 }
