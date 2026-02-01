@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 9002",
+    "clean": "rm -rf .next .firebase/hosting && npm cache clean --force",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
