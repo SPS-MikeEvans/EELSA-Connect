@@ -9,6 +9,9 @@
 - Messaging System: A secure, in-app messaging system for communication between users. This feature enables ELSAs to connect with administrators or other ELSAs, facilitating support and collaboration.
 - Admin Dashboard: A comprehensive dashboard for administrators to manage the platform. This includes tools to view, edit, and manage user data, roles, and statuses.
 - Privacy and Compliance: The application is designed to be fully compliant with GDPR. Implementation of secure data handling and storage practices, using Firestore security rules to protect user data.
+    - **Privacy by Design:** Privacy is a core consideration in the architectural design.
+    - **Privacy by Default:** User permissions are set to the minimum necessary by default. Personal data collection is minimized to what is strictly essential for the service.
+    - **Security:** Security rules are implemented from the outset in Firestore and Storage to prevent unauthorized access.
 
 ## Style Guidelines:
 

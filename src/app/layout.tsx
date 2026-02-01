@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { Providers } from "./providers";
 import "./globals.css";
+import { CookieConsentBanner } from "@/components/common/cookie-consent";
 
 export const metadata: Metadata = {
   title: "ELSA Training Hub",
@@ -23,6 +24,7 @@ export default function RootLayout({
       <body className="font-body antialiased">
         <Providers>
           {children}
+          <CookieConsentBanner />
         </Providers>
       </body>
     </html>

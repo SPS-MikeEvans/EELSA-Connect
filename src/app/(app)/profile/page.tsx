@@ -21,6 +21,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRef, useState, useEffect } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Badge } from "@/components/ui/badge";
+import { DataPrivacySettings } from "@/components/auth/data-privacy-settings";
 
 const profileSchema = z.object({
   fullName: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -277,6 +278,8 @@ export default function ProfilePage() {
                         </Card>
                     </form>
                 </Form>
+
+                <DataPrivacySettings />
             </div>
         </div>
     )

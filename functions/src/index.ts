@@ -679,3 +679,9 @@ export const onFeedbackCreate = functions
             console.error("Error sending feedback notification:", error);
         }
     });
+
+// ============================================================================
+// GDPR / DATA PRIVACY FUNCTIONS
+// ============================================================================
+
+export * from './gdpr';
