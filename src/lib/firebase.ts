@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator, initializeFirestore, Firestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getFunctions } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -28,10 +29,11 @@ try {
 }
 
 const storage = getStorage(app);
+const functions = getFunctions(app, "us-central1"); // Explicitly setting region often helps avoid issues
 
 // Use emulator if specifically configured or in a dev environment that implies it
 if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
   connectFirestoreEmulator(db, 'localhost', 8080);
 }
 
-export { app, auth, db, storage };
+export { app, auth, db, storage, functions };
