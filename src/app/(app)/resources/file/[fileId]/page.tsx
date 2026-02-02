@@ -26,6 +26,7 @@ interface Resource {
   type: string;
   icon: React.ElementType;
   downloadUrl?: string;
+  thumbnailUrl?: string;
   createdAt: any;
   contributorName: string;
   purpose: string;
@@ -77,6 +78,7 @@ export default function FilePage({ params }: { params: Promise<{ fileId: string 
                     type: data.type,
                     icon: getIconForType(data.fileType || data.type),
                     downloadUrl: data.downloadUrl,
+                    thumbnailUrl: data.thumbnailUrl,
                     createdAt: data.createdAt?.toDate(),
                     contributorName: data.contributorName,
                     purpose: data.purpose,
@@ -182,13 +184,13 @@ export default function FilePage({ params }: { params: Promise<{ fileId: string 
                         </div>
                     </CardHeader>
                     <CardContent>
-                       {isImage && resource.downloadUrl ? (
-                         <div className="relative aspect-video w-full rounded-md overflow-hidden border">
+                       {(isImage && resource.downloadUrl) || resource.thumbnailUrl ? (
+                         <div className="relative aspect-video w-full rounded-md overflow-hidden border bg-muted/20">
                             <Image
-                                src={resource.downloadUrl}
+                                src={resource.thumbnailUrl || resource.downloadUrl!}
                                 alt={resource.title}
                                 fill
-                                className="object-contain"
+                                className="object-contain" // Ensures full preview is visible without cropping
                             />
                          </div>
                        ) : (
