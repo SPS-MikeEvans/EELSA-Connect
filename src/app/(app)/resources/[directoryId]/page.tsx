@@ -10,7 +10,7 @@ import { useUser } from "@/providers/user-provider";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Presentation, Video, Download, Folder, ChevronRight, Home, MoreVertical, Trash2, Edit, List, LayoutGrid, Upload, FileStack, Tags, CheckSquare, Square } from "lucide-react";
+import { FileText, Presentation, Video, Download, Folder, ChevronRight, Home, MoreVertical, Trash2, Edit, List, LayoutGrid, Upload, FileStack, Tags, CheckSquare, Square, ImageIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -29,6 +29,7 @@ import { BatchTagDialog } from "@/components/resources/batch-tag-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Check, ChevronsUpDown, Filter } from "lucide-react";
+import Image from "next/image";
 
 
 interface Resource {
@@ -38,6 +39,7 @@ interface Resource {
   type: string;
   icon: React.ElementType;
   downloadUrl?: string;
+  thumbnailUrl?: string;
   itemType: 'file' | 'directory';
   purpose?: string;
   tags?: string[];
@@ -54,6 +56,9 @@ const getIconForType = (type: string) => {
         case 'video': return Video;
         case 'presentation': return Presentation;
         case 'directory': return Folder;
+        case 'jpeg':
+        case 'png': 
+        case 'image': return ImageIcon;
         default: return FileText;
     }
 }
@@ -100,13 +105,15 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
                 if (data.tags && Array.isArray(data.tags)) {
                     data.tags.forEach((tag: string) => allTags.add(tag));
                 }
+                const fileType = data.fileType?.split('/')[1] || data.type || 'file';
                 return {
                     id: doc.id,
                     title: data.title,
                     description: data.description,
-                    type: data.fileType?.split('/')[1] || data.type || 'file',
-                    icon: getIconForType(data.fileType?.split('/')[1] || data.type || 'file'),
+                    type: fileType,
+                    icon: getIconForType(fileType),
                     downloadUrl: data.downloadUrl,
+                    thumbnailUrl: data.thumbnailUrl,
                     itemType: 'file' as const,
                     purpose: data.purpose,
                     tags: data.tags || [],
@@ -205,7 +212,7 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button variant="ghost" size="icon" className="h-8 w-8 bg-white/50 hover:bg-white/80">
                     <MoreVertical className="size-4" />
                 </Button>
             </DropdownMenuTrigger>
@@ -405,13 +412,26 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
                             <Card 
                                 key={item.id} 
                                 className={cn(
-                                    "h-full flex flex-col relative group transition-all duration-200 hover:shadow-lg",
+                                    "h-full flex flex-col relative group transition-all duration-200 hover:shadow-lg overflow-hidden",
                                     selectedItems.has(item.id) && "border-primary bg-primary/5"
                                 )}
                             >
+                                {item.thumbnailUrl && (
+                                     <div className="h-32 w-full bg-muted overflow-hidden relative border-b">
+                                        <Image 
+                                            src={item.thumbnailUrl} 
+                                            alt={item.title} 
+                                            fill 
+                                            className="object-cover transition-transform group-hover:scale-105"
+                                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                        />
+                                    </div>
+                                )}
+
                                 {canManage && (
                                     <div className="absolute top-2 left-2 z-20">
                                          <Checkbox 
+                                            className="bg-white/80 backdrop-blur-sm"
                                             checked={selectedItems.has(item.id)}
                                             onCheckedChange={() => toggleSelection(item.id)}
                                         />
@@ -422,13 +442,15 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
                                 </div>
                                 <Tooltip delayDuration={200}>
                                     <TooltipTrigger asChild>
-                                        <Link href={`/resources/file/${item.id}`} className="h-full flex flex-col pt-6">
+                                        <Link href={`/resources/file/${item.id}`} className="h-full flex flex-col pt-4">
                                             <CardHeader className="flex flex-row items-start gap-4 space-y-0 pb-2">
-                                                <div className="flex-shrink-0 mt-1">
-                                                    <item.icon className="size-8 text-primary" />
-                                                </div>
+                                                {!item.thumbnailUrl && (
+                                                    <div className="flex-shrink-0 mt-1">
+                                                        <item.icon className="size-8 text-primary" />
+                                                    </div>
+                                                )}
                                                 <div className="flex-1 min-w-0">
-                                                    <CardTitle className="truncate">{item.title}</CardTitle>
+                                                    <CardTitle className="truncate text-base">{item.title}</CardTitle>
                                                      {item.tags && item.tags.length > 0 && (
                                                         <div className="flex flex-wrap gap-1 mt-2">
                                                             {item.tags.slice(0, 3).map(tag => (
@@ -473,7 +495,7 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
                     <TableHeader>
                         <TableRow>
                             {canManage && <TableHead className="w-8"></TableHead>}
-                            <TableHead className="w-12"></TableHead>
+                            <TableHead className="w-16">Preview</TableHead>
                             <TableHead>Name</TableHead>
                             <TableHead>Tags</TableHead>
                             <TableHead>Type</TableHead>
@@ -485,7 +507,7 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
                             Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
                                     {canManage && <TableCell><Skeleton className="size-4 rounded-sm" /></TableCell>}
-                                    <TableCell><Skeleton className="size-6 rounded-sm" /></TableCell>
+                                    <TableCell><Skeleton className="size-8 rounded-sm" /></TableCell>
                                     <TableCell><Skeleton className="h-5 w-48" /></TableCell>
                                     <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                                     <TableCell><Skeleton className="h-5 w-20" /></TableCell>
@@ -505,7 +527,13 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
                                         </TableCell>
                                     )}
                                     <TableCell>
-                                        <item.icon className="size-6 text-primary" />
+                                        {item.thumbnailUrl ? (
+                                            <div className="relative size-10 rounded overflow-hidden border">
+                                                <Image src={item.thumbnailUrl} alt="" fill className="object-cover" />
+                                            </div>
+                                        ) : (
+                                            <item.icon className="size-8 text-primary/50" />
+                                        )}
                                     </TableCell>
                                     <TableCell className="font-medium">
                                         <TooltipProvider>
@@ -531,7 +559,7 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
                                             )}
                                         </div>
                                     </TableCell>
-                                    <TableCell className="capitalize text-muted-foreground">{item.itemType}</TableCell>
+                                    <TableCell className="capitalize text-muted-foreground">{item.type}</TableCell>
                                     <TableCell className="text-right">
                                         <div className={cn("opacity-0 group-hover:opacity-100 transition-opacity", canManage ? 'block' : 'hidden')}>
                                             <ItemActions item={item} />
@@ -542,7 +570,7 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
                         
                         ) : (
                              <TableRow>
-                                <TableCell colSpan={canManage ? 6 : 5} className="h-24 text-center">
+                                <TableCell colSpan={canManage ? 7 : 6} className="h-24 text-center">
                                     No resources match your criteria.
                                 </TableCell>
                             </TableRow>

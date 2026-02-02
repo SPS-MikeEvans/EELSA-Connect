@@ -27,6 +27,77 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload } from "lucide-react";
 import { TagInput } from "@/components/common/tag-input";
 
+// Thumbnail Generation Function
+async function generateThumbnail(file: File): Promise<File | null> {
+  return new Promise((resolve) => {
+    if (file.type === 'application/pdf') {
+      // Dynamically import pdf.js to avoid SSR issues
+      import('pdfjs-dist').then(async (pdfjsLib) => {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js';
+
+        try {
+            const url = URL.createObjectURL(file);
+            const pdf = await pdfjsLib.getDocument(url).promise;
+            const page = await pdf.getPage(1);
+            const scale = 1.5;
+            const viewport = page.getViewport({ scale });
+
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+
+            await page.render({
+            canvasContext: canvas.getContext('2d')!,
+            viewport,
+            }).promise;
+
+            canvas.toBlob((blob) => {
+            if (blob) {
+                resolve(new File([blob], file.name + '.jpg', { type: 'image/jpeg' }));
+            } else {
+                resolve(null);
+            }
+            }, 'image/jpeg', 0.9);
+        } catch (error) {
+            console.error("Error generating PDF thumbnail:", error);
+            resolve(null);
+        }
+      });
+    } else if (file.type.startsWith('image/')) {
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      img.onload = () => {
+        const maxSize = 400;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxSize) { height *= maxSize / width; width = maxSize; }
+        } else {
+          if (height > maxSize) { width *= maxSize / height; height = maxSize; }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(new File([blob], file.name + '.jpg', { type: 'image/jpeg' }));
+          } else {
+            resolve(null);
+          }
+        }, 'image/jpeg', 0.9);
+      };
+      img.onerror = () => resolve(null);
+    } else {
+      resolve(null);
+    }
+  });
+}
+
+
 // Safe check for FileList which is not defined during SSR/Build
 const fileSchema = typeof window === "undefined" 
     ? z.any() 
@@ -58,6 +129,7 @@ export function UploadResourceForm({ directoryId, onSuccess }: UploadResourceFor
   const { user, userDetails } = useUser();
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
+  const [progressMessage, setProgressMessage] = useState<string>("");
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -75,14 +147,40 @@ export function UploadResourceForm({ directoryId, onSuccess }: UploadResourceFor
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) return;
     setIsUploading(true);
+    setProgressMessage("Preparing upload...");
 
     try {
         const file = values.file[0];
-        const storageRef = ref(storage, `resources/${directoryId || 'root'}/${Date.now()}_${file.name}`);
-        const snapshot = await uploadBytes(storageRef, file);
-        const downloadUrl = await getDownloadURL(snapshot.ref);
+        
+        // 1. Generate Thumbnail
+        setProgressMessage("Generating thumbnail...");
+        const thumbnailFile = await generateThumbnail(file);
+        
+        // 2. Upload Files in Parallel
+        setProgressMessage("Uploading files...");
+        const timestamp = Date.now();
+        const storagePath = `resources/${directoryId || 'root'}/${timestamp}_${file.name}`;
+        const storageRef = ref(storage, storagePath);
+        
+        const uploadPromises: Promise<any>[] = [
+            uploadBytes(storageRef, file).then(snap => getDownloadURL(snap.ref))
+        ];
 
-        // Fix: Use userDetails.fullName if available, otherwise fallback to Auth displayName, otherwise "Unknown"
+        let thumbnailStoragePath: string | null = null;
+        if (thumbnailFile) {
+            thumbnailStoragePath = `thumbnails/${timestamp}_${file.name}.jpg`;
+            const thumbnailRef = ref(storage, thumbnailStoragePath);
+            uploadPromises.push(
+                uploadBytes(thumbnailRef, thumbnailFile).then(snap => getDownloadURL(snap.ref))
+            );
+        } else {
+             uploadPromises.push(Promise.resolve(null)); // Placeholder
+        }
+
+        const [downloadUrl, thumbnailUrl] = await Promise.all(uploadPromises);
+
+        // 3. Save to Firestore
+        setProgressMessage("Saving details...");
         const uploadedByName = userDetails?.fullName || user.displayName || "Unknown";
 
         await addDoc(collection(db, "resources"), {
@@ -92,7 +190,8 @@ export function UploadResourceForm({ directoryId, onSuccess }: UploadResourceFor
             fileType: file.type,
             purpose: values.purpose,
             downloadUrl: downloadUrl,
-            storagePath: snapshot.ref.fullPath,
+            storagePath: snapshot => snapshot ? storagePath : null, // Not strictly needed as we have path above
+            thumbnailUrl: thumbnailUrl || null, // Fallback if generation failed
             uploadedBy: user.uid,
             uploadedByName: uploadedByName,
             directoryId: directoryId,
@@ -114,6 +213,7 @@ export function UploadResourceForm({ directoryId, onSuccess }: UploadResourceFor
         });
     } finally {
         setIsUploading(false);
+        setProgressMessage("");
     }
   }
 
@@ -230,7 +330,7 @@ export function UploadResourceForm({ directoryId, onSuccess }: UploadResourceFor
         <Button type="submit" disabled={isUploading} className="w-full">
             {isUploading ? (
                 <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {progressMessage || "Uploading..."}
                 </>
             ) : (
                 <>
