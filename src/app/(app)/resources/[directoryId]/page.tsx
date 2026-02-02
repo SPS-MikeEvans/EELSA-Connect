@@ -10,7 +10,7 @@ import { useUser } from "@/providers/user-provider";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Presentation, Video, Download, Folder, ChevronRight, Home, MoreVertical, Trash2, Edit, List, LayoutGrid, Upload, FileStack } from "lucide-react";
+import { FileText, Presentation, Video, Download, Folder, ChevronRight, Home, MoreVertical, Trash2, Edit, List, LayoutGrid, Upload, FileStack, Tags, CheckSquare, Square } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -23,6 +23,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { UploadResourceDialog } from "@/components/resources/upload-resource-dialog";
 import { BatchUploadDialog } from "@/components/resources/batch-upload-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { BatchTagDialog } from "@/components/resources/batch-tag-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Check, ChevronsUpDown, Filter } from "lucide-react";
 
 
 interface Resource {
@@ -34,6 +40,7 @@ interface Resource {
   downloadUrl?: string;
   itemType: 'file' | 'directory';
   purpose?: string;
+  tags?: string[];
 }
 
 interface Directory {
@@ -57,6 +64,16 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
   const [items, setItems] = useState<Resource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  
+  // Selection & Tagging State
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [isBatchTagOpen, setIsBatchTagOpen] = useState(false);
+  
+  // Filter State
+  const [filterTags, setFilterTags] = useState<string[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+
   const { user, userRole } = useUser();
   const { toast } = useToast();
 
@@ -77,8 +94,12 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
 
         const resourcesQuery = query(collection(db, "resources"), where("directoryId", "==", directoryId));
         const unsubscribeResources = onSnapshot(resourcesQuery, (querySnapshot) => {
+            const allTags = new Set<string>();
             const resourcesData = querySnapshot.docs.map(doc => {
                 const data = doc.data();
+                if (data.tags && Array.isArray(data.tags)) {
+                    data.tags.forEach((tag: string) => allTags.add(tag));
+                }
                 return {
                     id: doc.id,
                     title: data.title,
@@ -88,9 +109,11 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
                     downloadUrl: data.downloadUrl,
                     itemType: 'file' as const,
                     purpose: data.purpose,
+                    tags: data.tags || [],
                 };
             });
 
+            setAvailableTags(Array.from(allTags).sort());
             setItems(resourcesData.sort((a, b) => a.title.localeCompare(b.title)));
             setIsLoading(false);
         }, () => { setIsLoading(false); });
@@ -106,14 +129,37 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
 
     return () => authUnsubscribe();
   }, [directoryId]);
+
+  // Derived state for filtered items
+  const filteredItems = items.filter(item => {
+      if (filterTags.length === 0) return true;
+      if (!item.tags) return false;
+      return filterTags.every(tag => item.tags!.includes(tag));
+  });
+
+  const toggleSelection = (id: string) => {
+      const newSelection = new Set(selectedItems);
+      if (newSelection.has(id)) {
+          newSelection.delete(id);
+      } else {
+          newSelection.add(id);
+      }
+      setSelectedItems(newSelection);
+  };
+
+  const selectAll = () => {
+      if (selectedItems.size === filteredItems.length) {
+          setSelectedItems(new Set());
+      } else {
+          setSelectedItems(new Set(filteredItems.map(i => i.id)));
+      }
+  };
   
   const handleDeleteDirectory = async (id: string, name: string) => {
     if (!user) return;
-    
     try {
         const token = await user.getIdToken();
          if (!token) return;
-
         await deleteDirectory(id, token);
         toast({
             title: "Directory Deleted",
@@ -144,7 +190,7 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
     }
   };
 
-  const handleUpdateFile = async (resourceId: string, values: { title: string; description: string; type: string; purpose: string; }) => {
+  const handleUpdateFile = async (resourceId: string, values: any) => {
     const docRef = doc(db, "resources", resourceId);
     await updateDoc(docRef, values);
     toast({
@@ -218,36 +264,121 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
             </BreadcrumbList>
         </Breadcrumb>
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
                 <h1 className="text-3xl font-headline font-bold tracking-tight">{directory?.name}</h1>
                 <p className="text-muted-foreground">
                     Browse resources within this directory.
                 </p>
             </div>
-             <div className="flex items-center gap-2">
+             <div className="flex flex-wrap items-center gap-2">
+                
+                {/* Filter Dropdown */}
+                <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("border-dashed", filterTags.length > 0 && "bg-accent/20 border-accent")}>
+                            <Filter className="mr-2 h-4 w-4" />
+                            Filter Tags
+                            {filterTags.length > 0 && (
+                                <Badge variant="secondary" className="ml-2 px-1 rounded-sm h-5 text-[10px] min-w-4 flex justify-center bg-primary text-primary-foreground">
+                                    {filterTags.length}
+                                </Badge>
+                            )}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[200px] p-0" align="end">
+                        <Command>
+                            <CommandInput placeholder="Tag..." />
+                            <CommandList>
+                                <CommandEmpty>No tags found.</CommandEmpty>
+                                <CommandGroup>
+                                    {availableTags.map((tag) => (
+                                        <CommandItem
+                                            key={tag}
+                                            value={tag}
+                                            onSelect={() => {
+                                                setFilterTags(prev => 
+                                                    prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+                                                )
+                                            }}
+                                        >
+                                            <div className={cn(
+                                                "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                filterTags.includes(tag) ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                                            )}>
+                                                <Check className={cn("h-4 w-4")} />
+                                            </div>
+                                            {tag}
+                                        </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                                {filterTags.length > 0 && (
+                                    <>
+                                        <div className="p-1">
+                                            <Button 
+                                                variant="ghost" 
+                                                className="w-full justify-center text-xs h-8"
+                                                onClick={() => setFilterTags([])}
+                                            >
+                                                Clear filters
+                                            </Button>
+                                        </div>
+                                    </>
+                                )}
+                            </CommandList>
+                        </Command>
+                    </PopoverContent>
+                </Popover>
+
                 {canManage && (
                     <>
-                        <UploadResourceDialog directoryId={directoryId}>
-                            <Button>
-                                <Upload className="mr-2 h-4 w-4" /> Upload
+                        {selectedItems.size > 0 ? (
+                            <Button onClick={() => setIsBatchTagOpen(true)} variant="secondary">
+                                <Tags className="mr-2 h-4 w-4" /> Manage Tags ({selectedItems.size})
                             </Button>
-                        </UploadResourceDialog>
-                        <BatchUploadDialog directoryId={directoryId}>
-                            <Button variant="outline">
-                                <FileStack className="mr-2 h-4 w-4" /> Batch Upload
-                            </Button>
-                        </BatchUploadDialog>
+                        ) : (
+                            <>
+                                <UploadResourceDialog directoryId={directoryId}>
+                                    <Button>
+                                        <Upload className="mr-2 h-4 w-4" /> Upload
+                                    </Button>
+                                </UploadResourceDialog>
+                                <BatchUploadDialog directoryId={directoryId}>
+                                    <Button variant="outline">
+                                        <FileStack className="mr-2 h-4 w-4" /> Batch Upload
+                                    </Button>
+                                </BatchUploadDialog>
+                            </>
+                        )}
                     </>
                 )}
-                <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')}>
-                    <LayoutGrid className="size-5" />
-                </Button>
-                <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('list')}>
-                    <List className="size-5" />
-                </Button>
+                
+                <div className="flex border rounded-md ml-2">
+                    <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" className="h-9 w-9 rounded-none rounded-l-md" onClick={() => setViewMode('grid')}>
+                        <LayoutGrid className="size-4" />
+                    </Button>
+                    <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" className="h-9 w-9 rounded-none rounded-r-md" onClick={() => setViewMode('list')}>
+                        <List className="size-4" />
+                    </Button>
+                </div>
             </div>
         </div>
+
+        {canManage && (
+             <div className="flex items-center space-x-2">
+                <Checkbox 
+                    id="select-all" 
+                    checked={filteredItems.length > 0 && selectedItems.size === filteredItems.length}
+                    onCheckedChange={selectAll}
+                />
+                <label
+                    htmlFor="select-all"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                    Select All
+                </label>
+            </div>
+        )}
 
         {viewMode === 'grid' ? (
              <TooltipProvider>
@@ -269,25 +400,49 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
                                 </CardContent>
                             </Card>
                         ))
-                    ) : items.length > 0 ? (
-                        items.map((item) => (
-                            <Card key={item.id} className="h-full flex flex-col relative group transition-transform duration-200 hover:scale-[1.01] hover:shadow-lg">
+                    ) : filteredItems.length > 0 ? (
+                        filteredItems.map((item) => (
+                            <Card 
+                                key={item.id} 
+                                className={cn(
+                                    "h-full flex flex-col relative group transition-all duration-200 hover:shadow-lg",
+                                    selectedItems.has(item.id) && "border-primary bg-primary/5"
+                                )}
+                            >
+                                {canManage && (
+                                    <div className="absolute top-2 left-2 z-20">
+                                         <Checkbox 
+                                            checked={selectedItems.has(item.id)}
+                                            onCheckedChange={() => toggleSelection(item.id)}
+                                        />
+                                    </div>
+                                )}
                                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                     <ItemActions item={item} />
                                 </div>
                                 <Tooltip delayDuration={200}>
                                     <TooltipTrigger asChild>
-                                        <Link href={`/resources/file/${item.id}`} className="h-full flex flex-col">
-                                            <CardHeader className="flex flex-row items-start gap-4 space-y-0">
-                                                <div className="flex-shrink-0">
+                                        <Link href={`/resources/file/${item.id}`} className="h-full flex flex-col pt-6">
+                                            <CardHeader className="flex flex-row items-start gap-4 space-y-0 pb-2">
+                                                <div className="flex-shrink-0 mt-1">
                                                     <item.icon className="size-8 text-primary" />
                                                 </div>
-                                                <div className="flex-1">
-                                                    <CardTitle>{item.title}</CardTitle>
+                                                <div className="flex-1 min-w-0">
+                                                    <CardTitle className="truncate">{item.title}</CardTitle>
+                                                     {item.tags && item.tags.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1 mt-2">
+                                                            {item.tags.slice(0, 3).map(tag => (
+                                                                <Badge key={tag} variant="secondary" className="text-[10px] px-1 py-0 h-4">{tag}</Badge>
+                                                            ))}
+                                                            {item.tags.length > 3 && (
+                                                                <span className="text-[10px] text-muted-foreground">+{item.tags.length - 3}</span>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </CardHeader>
                                             {item.itemType === 'file' && item.downloadUrl && (
-                                                <CardContent className="mt-auto">
+                                                <CardContent className="mt-auto pt-2">
                                                     <div className="flex justify-end">
                                                         <Button variant="outline" size="sm" onClick={(e) => { e.preventDefault(); window.open(item.downloadUrl, '_blank'); }}>
                                                             <Download className="mr-2 size-4" /> Download
@@ -306,8 +461,8 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
                     ) : (
                         <div className="col-span-full text-center py-12">
                             <Folder className="mx-auto size-16 text-muted-foreground/50" />
-                            <h3 className="mt-4 text-lg font-medium">This directory is empty</h3>
-                            <p className="mt-1 text-sm text-muted-foreground">Upload a resource to get started.</p>
+                            <h3 className="mt-4 text-lg font-medium">No resources found</h3>
+                            <p className="mt-1 text-sm text-muted-foreground">Try adjusting your filters or upload a new resource.</p>
                         </div>
                     )}
                 </div>
@@ -317,26 +472,38 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
                 <Table>
                     <TableHeader>
                         <TableRow>
-                        <TableHead className="w-12"></TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                            {canManage && <TableHead className="w-8"></TableHead>}
+                            <TableHead className="w-12"></TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Tags</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {isLoading ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
+                                    {canManage && <TableCell><Skeleton className="size-4 rounded-sm" /></TableCell>}
                                     <TableCell><Skeleton className="size-6 rounded-sm" /></TableCell>
                                     <TableCell><Skeleton className="h-5 w-48" /></TableCell>
+                                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                                     <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                                     <TableCell className="text-right"><Skeleton className="h-8 w-8 rounded-md" /></TableCell>
                                 </TableRow>
                             ))
-                        ) : items.length > 0 ? (
+                        ) : filteredItems.length > 0 ? (
                         
-                            items.map((item) => (
-                                <TableRow key={item.id} className="group">
+                            filteredItems.map((item) => (
+                                <TableRow key={item.id} className={cn("group", selectedItems.has(item.id) && "bg-muted/50")}>
+                                     {canManage && (
+                                        <TableCell>
+                                             <Checkbox 
+                                                checked={selectedItems.has(item.id)}
+                                                onCheckedChange={() => toggleSelection(item.id)}
+                                            />
+                                        </TableCell>
+                                    )}
                                     <TableCell>
                                         <item.icon className="size-6 text-primary" />
                                     </TableCell>
@@ -354,6 +521,16 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
                                         </Tooltip>
                                         </TooltipProvider>
                                     </TableCell>
+                                    <TableCell>
+                                        <div className="flex flex-wrap gap-1">
+                                            {item.tags?.slice(0, 3).map(tag => (
+                                                <Badge key={tag} variant="outline" className="text-[10px] px-1 h-5">{tag}</Badge>
+                                            ))}
+                                            {item.tags && item.tags.length > 3 && (
+                                                <Badge variant="outline" className="text-[10px] px-1 h-5">+{item.tags.length - 3}</Badge>
+                                            )}
+                                        </div>
+                                    </TableCell>
                                     <TableCell className="capitalize text-muted-foreground">{item.itemType}</TableCell>
                                     <TableCell className="text-right">
                                         <div className={cn("opacity-0 group-hover:opacity-100 transition-opacity", canManage ? 'block' : 'hidden')}>
@@ -365,8 +542,8 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
                         
                         ) : (
                              <TableRow>
-                                <TableCell colSpan={4} className="h-24 text-center">
-                                    This directory is empty.
+                                <TableCell colSpan={canManage ? 6 : 5} className="h-24 text-center">
+                                    No resources match your criteria.
                                 </TableCell>
                             </TableRow>
                         )}
@@ -374,6 +551,15 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
                 </Table>
             </Card>
         )}
+        
+        {/* Batch Tag Dialog */}
+        <BatchTagDialog 
+            open={isBatchTagOpen} 
+            onOpenChange={setIsBatchTagOpen}
+            selectedIds={Array.from(selectedItems)}
+            currentTagsMap={items.reduce((acc, item) => ({ ...acc, [item.id]: item.tags || [] }), {})}
+            onSuccess={() => setSelectedItems(new Set())}
+        />
     </div>
   );
 }

@@ -34,12 +34,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { TagInput } from "@/components/common/tag-input";
 
 const formSchema = z.object({
   title: z.string().min(2),
   description: z.string().min(10),
   type: z.enum(["Form", "Assessment", "Activity", "Research", "Website", "Other"]),
   purpose: z.enum(["Excellent ELSA", "Training", "Supervision"]),
+  tags: z.array(z.string()).optional(),
 });
 
 interface Resource {
@@ -48,6 +50,7 @@ interface Resource {
     description: string;
     type: string;
     purpose?: string;
+    tags?: string[];
 }
 
 interface EditResourceDialogProps {
@@ -67,6 +70,7 @@ export function EditResourceDialog({ resource, onUpdate, children }: EditResourc
       description: resource.description || "",
       type: resource.type as any, // Cast because DB value might not match enum
       purpose: resource.purpose as any,
+      tags: resource.tags || [],
     },
   });
 
@@ -158,6 +162,22 @@ export function EditResourceDialog({ resource, onUpdate, children }: EditResourc
                   <FormMessage />
                 </FormItem>
               )}
+            />
+            <FormField
+                control={form.control}
+                name="tags"
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Tags</FormLabel>
+                        <FormControl>
+                            <TagInput 
+                                value={field.value || []} 
+                                onChange={field.onChange} 
+                            />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}
             />
             <DialogFooter>
               <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>

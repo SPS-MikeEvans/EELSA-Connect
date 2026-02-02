@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 interface ResourceItem {
@@ -85,9 +86,13 @@ export function ResourceSearch({ items }: ResourceSearchProps) {
                                 {filteredItems.map((item) => (
                                     <CommandItem key={item.id} onSelect={() => handleSelect(item.id, item.itemType)}>
                                         {item.itemType === 'directory' ? <Folder className="mr-2 h-4 w-4" /> : <FileText className="mr-2 h-4 w-4" />}
-                                        <div className="flex flex-col">
-                                            <span>{item.title}</span>
-                                            {item.description && <span className="text-xs text-muted-foreground truncate max-w-[200px]">{item.description}</span>}
+                                        <div className="flex flex-col overflow-hidden">
+                                            <span className="truncate font-medium">{item.title}</span>
+                                            <div className="flex gap-1 overflow-hidden">
+                                                {item.tags?.slice(0, 2).map(tag => (
+                                                    <Badge key={tag} variant="secondary" className="text-[10px] px-1 h-4">{tag}</Badge>
+                                                ))}
+                                            </div>
                                         </div>
                                     </CommandItem>
                                 ))}

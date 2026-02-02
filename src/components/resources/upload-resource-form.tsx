@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload } from "lucide-react";
+import { TagInput } from "@/components/common/tag-input";
 
 // Safe check for FileList which is not defined during SSR/Build
 const fileSchema = typeof window === "undefined" 
@@ -45,6 +46,7 @@ const formSchema = z.object({
   purpose: z.enum(["Excellent ELSA", "Training", "Supervision"], {
       required_error: "Please select a resource purpose.",
   }),
+  tags: z.array(z.string()).optional(),
 });
 
 interface UploadResourceFormProps {
@@ -64,6 +66,7 @@ export function UploadResourceForm({ directoryId, onSuccess }: UploadResourceFor
       description: "",
       type: undefined,
       purpose: undefined,
+      tags: [],
     },
   });
 
@@ -79,6 +82,9 @@ export function UploadResourceForm({ directoryId, onSuccess }: UploadResourceFor
         const snapshot = await uploadBytes(storageRef, file);
         const downloadUrl = await getDownloadURL(snapshot.ref);
 
+        // Fix: Use userDetails.fullName if available, otherwise fallback to Auth displayName, otherwise "Unknown"
+        const uploadedByName = userDetails?.fullName || user.displayName || "Unknown";
+
         await addDoc(collection(db, "resources"), {
             title: values.title,
             description: values.description,
@@ -88,8 +94,9 @@ export function UploadResourceForm({ directoryId, onSuccess }: UploadResourceFor
             downloadUrl: downloadUrl,
             storagePath: snapshot.ref.fullPath,
             uploadedBy: user.uid,
-            uploadedByName: userDetails?.fullName || "Unknown",
+            uploadedByName: uploadedByName,
             directoryId: directoryId,
+            tags: values.tags || [],
             createdAt: serverTimestamp(),
         });
 
@@ -185,6 +192,26 @@ export function UploadResourceForm({ directoryId, onSuccess }: UploadResourceFor
               <FormMessage />
             </FormItem>
           )}
+        />
+        <FormField
+            control={form.control}
+            name="tags"
+            render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Tags</FormLabel>
+                    <FormControl>
+                        <TagInput 
+                            value={field.value || []} 
+                            onChange={field.onChange} 
+                            placeholder="Add tags (e.g. 'anxiety', 'KS2')..."
+                        />
+                    </FormControl>
+                    <FormDescription>
+                        Tagging helps in filtering and finding resources later.
+                    </FormDescription>
+                    <FormMessage />
+                </FormItem>
+            )}
         />
         <FormField
             control={form.control}
