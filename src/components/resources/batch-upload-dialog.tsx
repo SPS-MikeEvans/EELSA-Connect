@@ -32,6 +32,60 @@ import { Loader2, Upload, File as FileIcon, X, Plus, Copy } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 
+// Thumbnail Generation (Reused logic)
+async function generateThumbnail(file: File): Promise<File | null> {
+  return new Promise((resolve) => {
+    if (file.type === 'application/pdf') {
+      import('pdfjs-dist').then(async (pdfjsLib) => {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs';
+        try {
+            const url = URL.createObjectURL(file);
+            const pdf = await pdfjsLib.getDocument(url).promise;
+            const page = await pdf.getPage(1);
+            const scale = 1.5;
+            const viewport = page.getViewport({ scale });
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            await page.render({ canvasContext: canvas.getContext('2d')!, viewport }).promise;
+            canvas.toBlob((blob) => {
+                if (blob) resolve(new File([blob], file.name + '.jpg', { type: 'image/jpeg' }));
+                else resolve(null);
+            }, 'image/jpeg', 0.9);
+        } catch (error) {
+            console.error("Error generating PDF thumbnail:", error);
+            resolve(null);
+        }
+      });
+    } else if (file.type.startsWith('image/')) {
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      img.onload = () => {
+        const maxSize = 400;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxSize) { height *= maxSize / width; width = maxSize; }
+        } else {
+          if (height > maxSize) { width *= maxSize / height; height = maxSize; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          if (blob) resolve(new File([blob], file.name + '.jpg', { type: 'image/jpeg' }));
+          else resolve(null);
+        }, 'image/jpeg', 0.9);
+      };
+      img.onerror = () => resolve(null);
+    } else {
+      resolve(null);
+    }
+  });
+}
+
 interface BatchUploadDialogProps {
   children: React.ReactNode;
   directoryId?: string | null;
@@ -134,16 +188,36 @@ export function BatchUploadDialog({ children, directoryId = null }: BatchUploadD
     await Promise.all(pendingFiles.map(async (fileData) => {
         try {
             updateFile(fileData.id, 'status', 'uploading');
-            updateFile(fileData.id, 'progress', 10);
+            updateFile(fileData.id, 'progress', 5);
 
-            // 1. Upload Storage
-            const storageRef = ref(storage, `resources/${directoryId || 'root'}/${Date.now()}_${fileData.file.name}`);
-            const snapshot = await uploadBytes(storageRef, fileData.file);
-            updateFile(fileData.id, 'progress', 60);
+            // 1. Generate Thumbnail
+            const thumbnailFile = await generateThumbnail(fileData.file);
+            updateFile(fileData.id, 'progress', 20);
+
+            // 2. Upload Files
+            const timestamp = Date.now();
+            const storagePath = `resources/${directoryId || 'root'}/${timestamp}_${fileData.file.name}`;
+            const storageRef = ref(storage, storagePath);
             
-            const downloadUrl = await getDownloadURL(snapshot.ref);
+            const uploadPromises: Promise<any>[] = [
+                uploadBytes(storageRef, fileData.file).then(snap => getDownloadURL(snap.ref))
+            ];
 
-            // 2. Create Firestore Doc
+            let thumbnailStoragePath: string | null = null;
+            if (thumbnailFile) {
+                thumbnailStoragePath = `thumbnails/${timestamp}_${fileData.file.name}.jpg`;
+                const thumbnailRef = ref(storage, thumbnailStoragePath);
+                uploadPromises.push(
+                    uploadBytes(thumbnailRef, thumbnailFile).then(snap => getDownloadURL(snap.ref))
+                );
+            } else {
+                uploadPromises.push(Promise.resolve(null));
+            }
+
+            const [downloadUrl, thumbnailUrl] = await Promise.all(uploadPromises);
+            updateFile(fileData.id, 'progress', 80);
+
+            // 3. Create Firestore Doc
             await addDoc(collection(db, "resources"), {
                 title: fileData.title,
                 description: fileData.description,
@@ -151,9 +225,10 @@ export function BatchUploadDialog({ children, directoryId = null }: BatchUploadD
                 fileType: fileData.file.type,
                 purpose: fileData.purpose,
                 downloadUrl: downloadUrl,
-                storagePath: snapshot.ref.fullPath,
+                storagePath: storagePath,
+                thumbnailUrl: thumbnailUrl || null,
                 uploadedBy: user.uid,
-                uploadedByName: userDetails?.fullName || "Unknown",
+                uploadedByName: userDetails?.fullName || user.displayName || "Unknown",
                 directoryId: directoryId,
                 createdAt: serverTimestamp(),
             });

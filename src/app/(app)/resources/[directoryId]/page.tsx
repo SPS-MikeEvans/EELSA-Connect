@@ -212,7 +212,7 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 bg-white/50 hover:bg-white/80">
+                <Button variant="ghost" size="icon" className="h-8 w-8 bg-transparent hover:bg-muted/20">
                     <MoreVertical className="size-4" />
                 </Button>
             </DropdownMenuTrigger>
@@ -412,72 +412,78 @@ export default function DirectoryPage({ params }: { params: Promise<{ directoryI
                             <Card 
                                 key={item.id} 
                                 className={cn(
-                                    "h-full flex flex-col relative group transition-all duration-200 hover:shadow-lg overflow-hidden",
+                                    "h-full flex flex-col relative group transition-all duration-200 hover:shadow-lg overflow-hidden border",
                                     selectedItems.has(item.id) && "border-primary bg-primary/5"
                                 )}
                             >
-                                {item.thumbnailUrl && (
-                                     <div className="h-32 w-full bg-muted overflow-hidden relative border-b">
-                                        <Image 
-                                            src={item.thumbnailUrl} 
-                                            alt={item.title} 
-                                            fill 
-                                            className="object-cover transition-transform group-hover:scale-105"
-                                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                        />
-                                    </div>
-                                )}
-
-                                {canManage && (
-                                    <div className="absolute top-2 left-2 z-20">
-                                         <Checkbox 
-                                            className="bg-white/80 backdrop-blur-sm"
-                                            checked={selectedItems.has(item.id)}
-                                            onCheckedChange={() => toggleSelection(item.id)}
-                                        />
-                                    </div>
-                                )}
-                                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                    <ItemActions item={item} />
-                                </div>
-                                <Tooltip delayDuration={200}>
-                                    <TooltipTrigger asChild>
-                                        <Link href={`/resources/file/${item.id}`} className="h-full flex flex-col pt-4">
-                                            <CardHeader className="flex flex-row items-start gap-4 space-y-0 pb-2">
-                                                {!item.thumbnailUrl && (
-                                                    <div className="flex-shrink-0 mt-1">
-                                                        <item.icon className="size-8 text-primary" />
-                                                    </div>
-                                                )}
-                                                <div className="flex-1 min-w-0">
-                                                    <CardTitle className="truncate text-base">{item.title}</CardTitle>
-                                                     {item.tags && item.tags.length > 0 && (
-                                                        <div className="flex flex-wrap gap-1 mt-2">
-                                                            {item.tags.slice(0, 3).map(tag => (
-                                                                <Badge key={tag} variant="secondary" className="text-[10px] px-1 py-0 h-4">{tag}</Badge>
-                                                            ))}
-                                                            {item.tags.length > 3 && (
-                                                                <span className="text-[10px] text-muted-foreground">+{item.tags.length - 3}</span>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </CardHeader>
-                                            {item.itemType === 'file' && item.downloadUrl && (
-                                                <CardContent className="mt-auto pt-2">
-                                                    <div className="flex justify-end">
-                                                        <Button variant="outline" size="sm" onClick={(e) => { e.preventDefault(); window.open(item.downloadUrl, '_blank'); }}>
-                                                            <Download className="mr-2 size-4" /> Download
-                                                        </Button>
-                                                    </div>
-                                                </CardContent>
+                                <div className="p-4 flex-1 flex flex-col">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="flex items-center gap-2">
+                                            {canManage && (
+                                                <Checkbox 
+                                                    checked={selectedItems.has(item.id)}
+                                                    onCheckedChange={() => toggleSelection(item.id)}
+                                                />
                                             )}
-                                        </Link>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" align="center" className="max-w-xs">
-                                        <p className="text-sm">{item.description}</p>
-                                    </TooltipContent>
-                                </Tooltip>
+                                            <div className="w-full">
+                                                <Tooltip delayDuration={200}>
+                                                    <TooltipTrigger asChild>
+                                                        <Link href={`/resources/file/${item.id}`} className="hover:underline">
+                                                            <CardTitle className="text-lg line-clamp-1">{item.title}</CardTitle>
+                                                        </Link>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>{item.description}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </div>
+                                        </div>
+                                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                            <ItemActions item={item} />
+                                        </div>
+                                    </div>
+
+                                    {/* Thumbnail Area - Centered and full-looking */}
+                                    <Link href={`/resources/file/${item.id}`} className="flex-1 flex flex-col items-center justify-center my-4 min-h-[180px]">
+                                        {item.thumbnailUrl ? (
+                                            <div className="relative w-full h-[220px] rounded-md overflow-hidden bg-muted/10">
+                                                <Image 
+                                                    src={item.thumbnailUrl} 
+                                                    alt={item.title} 
+                                                    fill 
+                                                    className="object-contain p-2 hover:scale-105 transition-transform duration-300"
+                                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center text-muted-foreground/40">
+                                                <item.icon className="size-16" strokeWidth={1} />
+                                                <span className="text-xs mt-2 uppercase tracking-wider">{item.type}</span>
+                                            </div>
+                                        )}
+                                    </Link>
+
+                                    {/* Tags */}
+                                    <div className="flex flex-wrap gap-2 mt-auto mb-4 justify-center">
+                                        {item.tags?.slice(0, 3).map(tag => (
+                                            <Badge key={tag} variant="secondary" className="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 hover:bg-blue-200 border-transparent rounded-full">
+                                                {tag}
+                                            </Badge>
+                                        ))}
+                                        {item.tags && item.tags.length > 3 && (
+                                            <Badge variant="outline" className="px-2 py-0.5 text-xs rounded-full">+{item.tags.length - 3}</Badge>
+                                        )}
+                                    </div>
+
+                                    {/* Footer Action */}
+                                    <div className="flex justify-end pt-2 border-t mt-2">
+                                        {item.itemType === 'file' && item.downloadUrl && (
+                                            <Button variant="outline" className="w-full gap-2" onClick={(e) => { e.preventDefault(); window.open(item.downloadUrl, '_blank'); }}>
+                                                <Download className="size-4" /> Download
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
                             </Card>
                         ))
                     ) : (
