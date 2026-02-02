@@ -33,7 +33,8 @@ async function generateThumbnail(file: File): Promise<File | null> {
     if (file.type === 'application/pdf') {
       // Dynamically import pdf.js to avoid SSR issues
       import('pdfjs-dist').then(async (pdfjsLib) => {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js';
+        // Point to local worker file in public folder to avoid CDN blocks
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs';
 
         try {
             const url = URL.createObjectURL(file);
@@ -190,7 +191,7 @@ export function UploadResourceForm({ directoryId, onSuccess }: UploadResourceFor
             fileType: file.type,
             purpose: values.purpose,
             downloadUrl: downloadUrl,
-            storagePath: snapshot => snapshot ? storagePath : null, // Not strictly needed as we have path above
+            storagePath: storagePath,
             thumbnailUrl: thumbnailUrl || null, // Fallback if generation failed
             uploadedBy: user.uid,
             uploadedByName: uploadedByName,

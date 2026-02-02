@@ -7,11 +7,11 @@ service firebase.storage {
     function isSignedIn() {
       return request.auth != null;
     }
-    function isAdmin() {
-      // Assuming you have a way to check admin status via custom claims or Firestore (which is hard in storage rules)
-      // For now, relying on simple auth checks or specific paths.
-      // Ideally, use Custom Claims for 'admin'.
-      return isSignedIn() && request.auth.token.role == 'Admin'; 
+    
+    // Resource thumbnails
+    match /thumbnails/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); 
     }
 
     match /resources/{allPaths=**} {
@@ -24,6 +24,10 @@ service firebase.storage {
       allow read: if isSignedIn(); // Or restrict to admins if possible
     }
     
-    // ... other existing rules ...
+    // User Profile Pictures
+    match /profile_pictures/{userId}/{fileName} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && request.auth.uid == userId;
+    }
   }
 }
